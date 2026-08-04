@@ -21,6 +21,10 @@ class UserController extends Controller
                 'birthDate' => optional($user->birth_date)?->toDateString(),
                 'role' => $user->role,
                 'email' => $user->email,
+                'createdBy' => $user->created_by,
+                'createdDate' => optional($user->created_date)?->toDateTimeString(),
+                'updatedBy' => $user->updated_by,
+                'updatedDate' => optional($user->updated_date)?->toDateTimeString(),
             ];
         });
 
@@ -38,6 +42,8 @@ class UserController extends Controller
             'role' => 'required|string|max:100',
             'email' => 'nullable|email|max:255',
             'password' => 'nullable|string|min:6',
+            'createdBy' => 'nullable|integer',
+            'createdDate' => 'nullable|date',
         ]);
 
         $user = User::create([
@@ -46,9 +52,21 @@ class UserController extends Controller
             'role' => $data['role'],
             'email' => $data['email'] ?? null,
             'password' => $data['password'] ?? null,
+            'created_by' => $data['createdBy'] ?? null,
+            'created_date' => $data['createdDate'] ?? now(),
         ]);
 
-        return response()->json($user, Response::HTTP_CREATED);
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'birthDate' => optional($user->birth_date)?->toDateString(),
+            'role' => $user->role,
+            'email' => $user->email,
+            'createdBy' => $user->created_by,
+            'createdDate' => optional($user->created_date)?->toDateTimeString(),
+            'updatedBy' => $user->updated_by,
+            'updatedDate' => optional($user->updated_date)?->toDateTimeString(),
+        ], Response::HTTP_CREATED);
     }
 
     /**
@@ -62,6 +80,10 @@ class UserController extends Controller
             'birthDate' => optional($user->birth_date)?->toDateString(),
             'role' => $user->role,
             'email' => $user->email,
+            'createdBy' => $user->created_by,
+            'createdDate' => optional($user->created_date)?->toDateTimeString(),
+            'updatedBy' => $user->updated_by,
+            'updatedDate' => optional($user->updated_date)?->toDateTimeString(),
         ]);
     }
 
@@ -76,6 +98,8 @@ class UserController extends Controller
             'role' => 'sometimes|required|string|max:100',
             'email' => 'nullable|email|max:255',
             'password' => 'nullable|string|min:6',
+            'updatedBy' => 'nullable|integer',
+            'updatedDate' => 'nullable|date',
         ]);
 
         $user->fill([
@@ -84,11 +108,23 @@ class UserController extends Controller
             'role' => $data['role'] ?? $user->role,
             'email' => $data['email'] ?? $user->email,
             'password' => $data['password'] ?? $user->password,
+            'updated_by' => $data['updatedBy'] ?? $user->updated_by,
+            'updated_date' => $data['updatedDate'] ?? now(),
         ]);
 
         $user->save();
 
-        return response()->json($user);
+        return response()->json([
+            'id' => $user->id,
+            'name' => $user->name,
+            'birthDate' => optional($user->birth_date)?->toDateString(),
+            'role' => $user->role,
+            'email' => $user->email,
+            'createdBy' => $user->created_by,
+            'createdDate' => optional($user->created_date)?->toDateTimeString(),
+            'updatedBy' => $user->updated_by,
+            'updatedDate' => optional($user->updated_date)?->toDateTimeString(),
+        ]);
     }
 
     /**
