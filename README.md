@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 # Effata Fun Learning
 
 A Laravel-based management system for Effata Fun Learning.
+=======
+# Service Effata Fun Learning
+
+A Laravel-based fun learning management system.
+>>>>>>> 051f70c93bf555f52c1d9bea5f710cb4a1503e9c
 
 ## Project Setup
 
