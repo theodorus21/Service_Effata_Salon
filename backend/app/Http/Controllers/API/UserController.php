@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
@@ -39,9 +40,9 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'birthDate' => 'nullable|date',
-            'role' => 'required|string|max:100',
-            'email' => 'nullable|email|max:255',
-            'password' => 'nullable|string|min:6',
+            'role' => 'required|string|in:user',
+            'email' => 'required|string|email|max:255|unique:users,email',
+            'password' => 'required|string|min:6',
             'createdBy' => 'nullable|integer',
             'createdDate' => 'nullable|date',
         ]);
@@ -95,7 +96,13 @@ class UserController extends Controller
         $data = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'birthDate' => 'nullable|date',
-            'role' => 'sometimes|required|string|max:100',
+            'role' => [
+                'sometimes',
+                'required',
+                'string',
+                Rule::exists('roles', 'code'),
+                Rule::notIn([User::ROLE_MASTER_ADMIN]),
+            ],
             'email' => 'nullable|email|max:255',
             'password' => 'nullable|string|min:6',
             'updatedBy' => 'nullable|integer',

@@ -1,0 +1,119 @@
+.signup-panel {
+    padding-top: 32px;
+    padding-bottom: 22px;
+}
+
+.signup-wrap {
+    width: min(100%, 420px);
+}
+
+.signup-wrap .form-heading {
+    margin-bottom: 22px;
+}
+
+.signup-field {
+    margin-top: 13px;
+}
+
+.signup-field:first-child {
+    margin-top: 0;
+}
+
+.signup-field > label {
+    color: #494043;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.signup-field > label > span {
+    color: #a49a9c;
+    font-size: 10px;
+    font-weight: 400;
+}
+
+.signup-field .input-wrap {
+    height: 43px;
+    margin-top: 6px;
+}
+
+.signup-field .input-wrap input {
+    font-size: 12px;
+}
+
+.terms-option {
+    width: 100%;
+    align-items: flex-start;
+    margin-top: 17px;
+    line-height: 1.6;
+}
+
+.terms-option .checkmark {
+    flex: 0 0 auto;
+    margin-top: 1px;
+}
+
+.terms-option > span:last-child {
+    color: #71676a;
+    font-size: 10px;
+}
+
+.terms-option .text-link {
+    font-size: inherit;
+}
+
+.signup-wrap .submit-button {
+    height: 46px;
+    margin-top: 17px;
+}
+
+.signup-wrap .form-message {
+    min-height: 0;
+    margin-top: 9px;
+}
+
+.signup-wrap .form-message[data-state="success"] {
+    color: #477653;
+}
+
+.signup-wrap .form-message[data-state="error"] {
+    color: #a44d52;
+}
+
+.signup-wrap .form-message[data-state="loading"] {
+    color: #796b70;
+}
+
+.signup-wrap .submit-button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+}
+
+.signup-wrap .signup-prompt {
+    margin-top: 10px;
+}
+
+.signup-wrap .form-footer {
+    margin-top: 19px;
+}
+
+@media (max-width: 650px) {
+    .signup-panel {
+        padding: 25px 24px 20px;
+    }
+
+    .signup-mobile-brand {
+        margin-bottom: 25px;
+    }
+
+    .signup-wrap .form-heading {
+        margin-bottom: 20px;
+    }
+
+    .signup-field {
+        margin-top: 11px;
+    }
+
+    .signup-wrap .form-footer {
+        margin-top: 18px;
+    }
+}
