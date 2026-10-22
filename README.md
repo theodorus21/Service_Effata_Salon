@@ -1,6 +1,6 @@
-# Service Effata Salon
+# Service Effata Fun Learning
 
-A Laravel-based salon management system.
+A Laravel-based fun learning management system.
 
 ## Project Setup
 
