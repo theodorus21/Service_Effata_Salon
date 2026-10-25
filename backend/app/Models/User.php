@@ -31,6 +31,7 @@ use Illuminate\Notifications\Notifiable;
     'address',
     'birth_date',
     'role',
+    'status',
     'email',
     'password',
     'created_by',
@@ -44,6 +45,10 @@ class User extends Authenticatable
     public const ROLE_MASTER_ADMIN = 'master_admin';
 
     public const ROLE_OWNER = 'owner';
+
+    protected $attributes = [
+        'status' => 'active',
+    ];
 
     private ?array $permissionCache = null;
 

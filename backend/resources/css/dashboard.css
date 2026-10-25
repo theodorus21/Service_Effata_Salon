@@ -27,11 +27,13 @@
     text-decoration: none;
 }
 
-.dashboard-brand .brand-mark {
+.dashboard-brand .dashboard-logo {
     width: 35px;
     height: 35px;
-    border-color: #aa8c9b;
-    font-size: 20px;
+    flex: 0 0 35px;
+    border-radius: 5px;
+    object-fit: contain;
+    background: #fff;
 }
 
 .dashboard-brand .brand-name > span {
@@ -494,12 +496,18 @@
 }
 
 .lesson-cancel-dialog {
+    position: fixed;
+    inset: 50% auto auto 50%;
     width: min(440px, calc(100% - 32px));
+    max-height: calc(100dvh - 32px);
+    margin: 0;
+    overflow-y: auto;
     padding: 22px;
     border: 1px solid #eee6e6;
     border-radius: 12px;
     color: #554b4e;
     box-shadow: 0 18px 60px rgb(43 31 37 / 24%);
+    transform: translate(-50%, -50%);
 }
 
 .lesson-cancel-dialog::backdrop {
@@ -769,6 +777,17 @@
 .lesson-history-empty {
     color: #93878a;
     font-size: 9px;
+}
+
+.lesson-history-item .lesson-history-reason,
+.lesson-history-item .lesson-history-meta {
+    grid-column: 1 / -1;
+}
+
+.lesson-history-item .lesson-history-reason {
+    margin: 0;
+    color: #71676a;
+    font-size: 10px;
 }
 
 .lesson-history-arrow {
@@ -1636,11 +1655,13 @@
 }
 
 .master-data-panel {
-    padding: 17px;
+    overflow: hidden;
+    padding: 0;
 }
 
 .master-data-panel .panel-heading {
-    margin-bottom: 14px;
+    margin: 0;
+    padding: 18px 20px;
 }
 
 .settings-panel-heading {
@@ -1656,18 +1677,51 @@
     text-align: left;
 }
 
+.master-data-table-guru,
+.master-data-table-admin {
+    min-width: 760px;
+}
+
+.master-data-table-murid {
+    min-width: 940px;
+}
+
 .master-data-panel th,
 .master-data-panel td {
-    padding: 12px 10px;
-    border-bottom: 1px solid #f0ecea;
+    padding: 13px 14px;
     color: #71676a;
     font-size: 11px;
+    vertical-align: middle;
 }
 
 .master-data-panel th {
+    border-bottom: 1px solid #e9e2e0;
     color: #a49a9c;
     font-size: 9px;
     font-weight: 500;
+    white-space: nowrap;
+}
+
+.master-data-table tbody tr {
+    border-bottom: 1px solid #f0ecea;
+}
+
+.master-data-table tbody tr:last-child {
+    border-bottom: 0;
+}
+
+.master-data-table tbody tr:hover {
+    background: #fdfbfc;
+}
+
+.master-data-panel th:first-child,
+.master-data-panel td:first-child {
+    padding-left: 20px;
+}
+
+.master-data-panel th:last-child,
+.master-data-panel td:last-child {
+    padding-right: 20px;
 }
 
 .learning-class-list-panel {
@@ -1779,8 +1833,10 @@
 
 .master-data-actions {
     display: flex;
+    align-items: center;
     justify-content: flex-end;
-    gap: 13px;
+    gap: 14px;
+    white-space: nowrap;
 }
 
 .master-data-actions form {
@@ -1814,6 +1870,25 @@
     color: #a95757;
 }
 
+.user-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 5px;
+    font-size: 9px;
+    font-weight: 600;
+}
+
+.user-status-active {
+    color: #62836f;
+    background: #edf4ef;
+}
+
+.user-status-inactive {
+    color: #9a6e6e;
+    background: #f8eeee;
+}
+
 .master-data-empty {
     padding: 28px 10px !important;
     color: #92888a !important;
@@ -1839,6 +1914,12 @@
 .master-data-form-panel {
     max-width: 660px;
     padding: 22px;
+}
+
+.master-data-help {
+    margin: 14px 0 0;
+    color: #92888a;
+    font-size: 10px;
 }
 
 .master-data-field {
@@ -2400,4 +2481,502 @@
     .role-permission-list {
         grid-template-columns: minmax(0, 1fr);
     }
+}
+
+.dashboard-page {
+    --plum: #386d9a;
+    --plum-dark: #28577f;
+    --muted: #778692;
+    --line: #dce8ed;
+    color: #24445d;
+    background: #f4fafb;
+}
+
+.dashboard-page .sidebar {
+    border-color: #dce8ed;
+    background: #fff;
+}
+
+.dashboard-page .dashboard-brand {
+    color: #28577f;
+}
+
+.dashboard-page .dashboard-brand .brand-name > span {
+    color: #328c84;
+}
+
+.dashboard-page .sidebar-label,
+.dashboard-page .dashboard-eyebrow {
+    color: #778692;
+}
+
+.dashboard-page .nav-item {
+    color: #637b8c;
+}
+
+.dashboard-page .nav-item:hover,
+.dashboard-page .nav-group-heading:hover {
+    color: #28577f;
+    background: #eef7f8;
+}
+
+.dashboard-page .nav-item.active {
+    color: #28577f;
+    background: #e8f3f5;
+}
+
+.dashboard-page .nav-item.active::before {
+    background: #45ada2;
+}
+
+.dashboard-page .nav-count {
+    color: #28577f;
+    background: #e8f3f5;
+}
+
+.dashboard-page .nav-submenu {
+    border-color: #dce8ed;
+}
+
+.dashboard-page .nav-subitem {
+    color: #637b8c;
+}
+
+.dashboard-page .nav-subitem:hover,
+.dashboard-page .nav-subitem.active {
+    color: #28577f;
+    background: #eef7f8;
+}
+
+.dashboard-page .sidebar-help {
+    border-color: #dce8ed;
+    background: #f4fafb;
+}
+
+.dashboard-page .help-icon {
+    background: #328c84;
+}
+
+.dashboard-page .sidebar-help strong {
+    color: #24445d;
+}
+
+.dashboard-page .sidebar-help small,
+.dashboard-page .help-arrow,
+.dashboard-page .nav-group-chevron {
+    color: #778692;
+}
+
+.dashboard-page .topbar {
+    border-color: #dce8ed;
+    background: rgb(255 255 255 / 94%);
+}
+
+.dashboard-page .topbar-title p,
+.dashboard-page .profile-copy strong {
+    color: #24445d;
+}
+
+.dashboard-page .topbar-title p span,
+.dashboard-page .profile-copy small,
+.dashboard-page .dashboard-footer {
+    color: #778692;
+}
+
+.dashboard-page .topbar-divider {
+    background: #dce8ed;
+}
+
+.dashboard-page .avatar-admin,
+.dashboard-page .avatar-rose {
+    color: #28577f;
+    background: #e8f3f5;
+}
+
+.dashboard-page .avatar-gold {
+    color: #a67820;
+    background: #fff5dc;
+}
+
+.dashboard-page .avatar-blue {
+    color: #28577f;
+    background: #e8f3f5;
+}
+
+.dashboard-page .avatar-sage {
+    color: #328c84;
+    background: #e8f5f1;
+}
+
+.dashboard-page .avatar-plum {
+    color: #328c84;
+    background: #e8f5f1;
+}
+
+.dashboard-page .dashboard-content {
+    color: #24445d;
+}
+
+.dashboard-page .welcome-row h1,
+.dashboard-page .master-data-heading h1,
+.dashboard-page .panel-heading h2,
+.dashboard-page .lesson-list-heading h2,
+.dashboard-page .lesson-detail-heading h2 {
+    color: #24445d;
+}
+
+.dashboard-page .welcome-row > div > p:last-child,
+.dashboard-page .master-data-heading p:last-child,
+.dashboard-page .panel-heading p,
+.dashboard-page .lesson-list-heading p {
+    color: #778692;
+}
+
+.dashboard-page .primary-action {
+    color: #24445d;
+    background: #ffcf62;
+    box-shadow: 0 7px 16px rgb(231 176 65 / 20%);
+}
+
+.dashboard-page .primary-action:hover {
+    background: #ffc447;
+}
+
+.dashboard-page .secondary-action {
+    border-color: #dce8ed;
+    color: #28577f;
+    background: #fff;
+}
+
+.dashboard-page .secondary-action:hover {
+    background: #eef7f8;
+}
+
+.dashboard-page .stat-card,
+.dashboard-page .panel {
+    border-color: #dce8ed;
+    background: #fff;
+    box-shadow: 0 8px 24px rgb(48 92 115 / 5%);
+}
+
+.dashboard-page .icon-plum {
+    color: #28577f;
+    background: #e8f3f5;
+}
+
+.dashboard-page .icon-rose {
+    color: #328c84;
+    background: #e8f5f1;
+}
+
+.dashboard-page .icon-sage {
+    color: #328c84;
+    background: #e8f5f1;
+}
+
+.dashboard-page .icon-gold {
+    color: #a67820;
+    background: #fff5dc;
+}
+
+.dashboard-page .stat-card > p,
+.dashboard-page .stat-card > small,
+.dashboard-page .rating-label,
+.dashboard-page .chart-y-labels,
+.dashboard-page .chart-column small,
+.dashboard-page .service-number,
+.dashboard-page .master-data-empty {
+    color: #778692;
+}
+
+.dashboard-page .stat-value,
+.dashboard-page .revenue-total strong {
+    color: #24445d;
+}
+
+.dashboard-page .stat-value > span:not(.rating-stars) {
+    color: #778692;
+}
+
+.dashboard-page .chart-grid i {
+    border-color: #dce8ed;
+}
+
+.dashboard-page .chart-column .bar {
+    background: #cce7e4;
+}
+
+.dashboard-page .chart-column:hover .bar {
+    background: #83c9c1;
+}
+
+.dashboard-page .chart-column .bar.today {
+    background: #386d9a;
+}
+
+.dashboard-page .service-row {
+    border-color: #e8f0f2;
+}
+
+.dashboard-page .service-color-one {
+    background: #4388b5;
+}
+
+.dashboard-page .service-color-two {
+    background: #65cebf;
+}
+
+.dashboard-page .service-color-three {
+    background: #9bc9b3;
+}
+
+.dashboard-page .service-color-four {
+    background: #ffcf62;
+}
+
+.dashboard-page .service-copy strong,
+.dashboard-page .service-share,
+.dashboard-page .customer-cell strong {
+    color: #24445d;
+}
+
+.dashboard-page .service-copy small,
+.dashboard-page .customer-cell small {
+    color: #778692;
+}
+
+.dashboard-page .appointment-count {
+    color: #28577f;
+    background: #e8f3f5;
+}
+
+.dashboard-page .appointments-panel th,
+.dashboard-page .master-data-panel th,
+.dashboard-page .lesson-record-table th {
+    border-color: #dce8ed;
+    color: #778692;
+}
+
+.dashboard-page .appointments-panel td,
+.dashboard-page .master-data-panel th,
+.dashboard-page .master-data-panel td,
+.dashboard-page .lesson-record-table td {
+    border-color: #e8f0f2;
+}
+
+.dashboard-page .appointments-panel td,
+.dashboard-page .master-data-panel td,
+.dashboard-page .lesson-record-table td {
+    color: #526d80;
+}
+
+.dashboard-page .master-data-table tbody tr:hover,
+.dashboard-page .learning-class-list-panel tbody tr:hover {
+    background: #f4fafb;
+}
+
+.dashboard-page .master-data-panel td strong,
+.dashboard-page .master-data-name-link,
+.dashboard-page .class-people-cell strong,
+.dashboard-page .class-schedule-time {
+    color: #24445d;
+}
+
+.dashboard-page .master-data-name-link:hover,
+.dashboard-page .table-action,
+.dashboard-page .panel-link,
+.dashboard-page .lesson-record-table td a {
+    color: #328c84;
+}
+
+.dashboard-page .class-schedule-day {
+    color: #28577f;
+    background: #e8f3f5;
+}
+
+.dashboard-page .class-people-cell small,
+.dashboard-page .class-schedule-duration,
+.dashboard-page .lesson-detail-heading p:last-child {
+    color: #778692;
+}
+
+.dashboard-page .master-data-form-panel input,
+.dashboard-page .master-data-form-panel select,
+.dashboard-page .master-data-form-panel textarea,
+.dashboard-page .schedule-filter-form input,
+.dashboard-page .schedule-filter-form select,
+.dashboard-page .lesson-period-form input,
+.dashboard-page .lesson-period-form select,
+.dashboard-page .generate-month-form input,
+.dashboard-page .schedule-input input,
+.dashboard-page .schedule-input select,
+.dashboard-page .lesson-cancel-dialog input,
+.dashboard-page .lesson-cancel-dialog select,
+.dashboard-page .lesson-cancel-dialog textarea {
+    border-color: #dce8ed;
+    color: #24445d;
+    background: #fff;
+}
+
+.dashboard-page .master-data-form-panel input:focus,
+.dashboard-page .master-data-form-panel select:focus,
+.dashboard-page .master-data-form-panel textarea:focus,
+.dashboard-page .schedule-filter-form input:focus,
+.dashboard-page .schedule-filter-form select:focus,
+.dashboard-page .lesson-period-form input:focus,
+.dashboard-page .lesson-period-form select:focus,
+.dashboard-page .generate-month-form input:focus,
+.dashboard-page .schedule-input input:focus,
+.dashboard-page .schedule-input select:focus {
+    border-color: #62b8af;
+    outline: 0;
+    box-shadow: 0 0 0 3px rgb(69 173 162 / 14%);
+}
+
+.dashboard-page .master-data-field label,
+.dashboard-page .schedule-filter-form label,
+.dashboard-page .lesson-period-form label,
+.dashboard-page .schedule-input label {
+    color: #385b72;
+}
+
+.dashboard-page .master-data-field label span,
+.dashboard-page .master-data-help,
+.dashboard-page .master-data-field small {
+    color: #778692;
+}
+
+.dashboard-page .schedule-row,
+.dashboard-page .lesson-history-item {
+    border-color: #dce8ed;
+    background: #f7fbfc;
+}
+
+.dashboard-page .lesson-icon-action {
+    border-color: #dce8ed;
+    color: #385b72;
+    background: #fff;
+}
+
+.dashboard-page .lesson-icon-action:hover:not(:disabled) {
+    background: #eef7f8;
+}
+
+.dashboard-page .lesson-detail-action,
+.dashboard-page .lesson-reschedule-action,
+.dashboard-page .status-progress {
+    color: #28577f;
+}
+
+.dashboard-page .status-progress {
+    background: #e8f3f5;
+}
+
+.dashboard-page .lesson-detail-heading,
+.dashboard-page .lesson-detail-grid > div,
+.dashboard-page .lesson-history-section,
+.dashboard-page .lesson-history-item {
+    border-color: #e0ebef;
+}
+
+.dashboard-page .lesson-detail-grid dt,
+.dashboard-page .lesson-history-item span,
+.dashboard-page .lesson-history-item small,
+.dashboard-page .lesson-history-empty {
+    color: #778692;
+}
+
+.dashboard-page .lesson-detail-grid dd,
+.dashboard-page .lesson-history-item strong,
+.dashboard-page .lesson-history-section summary {
+    color: #385b72;
+}
+
+.dashboard-page .lesson-history-arrow {
+    color: #328c84;
+}
+
+.dashboard-page .guru-detail-heading,
+.dashboard-page .guru-detail-grid > div {
+    border-color: #e0ebef;
+}
+
+.dashboard-page .guru-detail-heading h2,
+.dashboard-page .guru-document-card h2,
+.dashboard-page .guru-detail-grid dd {
+    color: #385b72;
+}
+
+.dashboard-page .guru-detail-heading p,
+.dashboard-page .guru-detail-grid dt,
+.dashboard-page .guru-document-empty {
+    color: #778692;
+}
+
+.dashboard-page .guru-document-card img {
+    background: #f4fafb;
+}
+
+.dashboard-page .role-permission-item {
+    border-color: #e0ebef;
+}
+
+.dashboard-page .role-permission-item strong {
+    color: #385b72;
+}
+
+.dashboard-page .role-permission-item small {
+    color: #778692;
+}
+
+.dashboard-page .role-permission-item input {
+    accent-color: #328c84;
+}
+
+.dashboard-page .search-box,
+.dashboard-page .search-shortcut,
+.dashboard-page .select-button {
+    border-color: #dce8ed;
+    color: #385b72;
+    background: #fff;
+}
+
+.dashboard-page .search-box svg {
+    stroke: #778692;
+}
+
+.dashboard-page .search-box input {
+    color: #24445d;
+}
+
+.dashboard-page .search-box input::placeholder {
+    color: #91a1aa;
+}
+
+.dashboard-page .notification-dot {
+    background: #ffcf62;
+}
+
+.dashboard-page .table-action-generate {
+    color: #328c84;
+}
+
+.dashboard-page .report-download-button {
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 9px;
+}
+
+.dashboard-page .master-data-pagination a,
+.dashboard-page .master-data-pagination span[aria-current="page"] span {
+    border-color: #dce8ed;
+    color: #385b72;
+    background: #fff;
+}
+
+.dashboard-page .master-data-pagination a:hover,
+.dashboard-page .master-data-pagination span[aria-current="page"] span {
+    border-color: #328c84;
+    color: #fff;
+    background: #328c84;
 }

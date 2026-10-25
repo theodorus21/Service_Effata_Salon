@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\LearningClass;
+use App\Models\LearningClassLessonStatus;
 use App\Models\LookupValue;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Feature\Concerns\AuthenticatesAsMasterAdmin;
@@ -11,8 +13,8 @@ use Tests\TestCase;
 
 class LearningClassTest extends TestCase
 {
-    use RefreshDatabase;
     use AuthenticatesAsMasterAdmin;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -119,6 +121,198 @@ class LearningClassTest extends TestCase
         $this->delete(route('learning-classes.destroy', $learningClass))
             ->assertRedirect(route('learning-classes.index'));
         $this->assertDatabaseMissing('learning_classes', ['id' => $learningClass->id]);
+    }
+
+    public function test_class_reports_can_be_created_for_a_month_range_and_listed_for_their_class(): void
+    {
+        $student = User::factory()->create(['name' => 'Murid Report', 'role' => 'murid']);
+        $teacher = User::factory()->create(['name' => 'Guru Report', 'role' => 'guru']);
+        $learningClass = $this->createClassForVisibility('Kelas Report', $teacher, $student);
+
+        $this->get(route('learning-classes.index'))
+            ->assertOk()
+            ->assertDontSee('Bulan jadwal')
+            ->assertDontSee('Pilih bulan')
+            ->assertSee(route('learning-classes.reports.index', $learningClass), false);
+
+        $period = ['period_start' => '2026-01', 'period_end' => '2026-03'];
+
+        $this->get(route('learning-classes.reports.index', ['learningClass' => $learningClass, ...$period]))
+            ->assertOk()
+            ->assertSee('Report Kelas Report')
+            ->assertSee('Tidak ada report pada periode yang dipilih.')
+            ->assertSee('period_start')
+            ->assertSee(e(route('learning-classes.reports.create', ['learningClass' => $learningClass, ...$period])), false);
+
+        $this->get(route('learning-classes.reports.create', ['learningClass' => $learningClass, ...$period]))
+            ->assertOk()
+            ->assertSee('Guru Report')
+            ->assertSee('Murid Report')
+            ->assertSee($learningClass->program->value)
+            ->assertSee('name="period_start" type="month" value="2026-01"', false)
+            ->assertSee('name="period_end" type="month" value="2026-03"', false)
+            ->assertSee('Evaluasi perkembangan')
+            ->assertSee('Catatan tambahan')
+            ->assertSee('Periode selesai harus sama dengan atau setelah periode mulai.');
+
+        $selectedPeriod = ['period_start' => '2026-02', 'period_end' => '2026-04'];
+        $this->post(route('learning-classes.reports.store', $learningClass), [
+            ...$selectedPeriod,
+            'development_evaluation' => 'Murid menunjukkan perkembangan yang baik.',
+            'additional_notes' => 'Latihan membaca dilanjutkan di rumah.',
+        ])->assertRedirect(route('learning-classes.reports.index', ['learningClass' => $learningClass, ...$selectedPeriod]))
+            ->assertSessionHas('status', 'Report kelas berhasil ditambahkan.');
+
+        $this->assertDatabaseHas('learning_class_reports', [
+            'learning_class_id' => $learningClass->id,
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'program_id' => $learningClass->program_id,
+            'period_start' => '2026-02',
+            'period_end' => '2026-04',
+            'development_evaluation' => 'Murid menunjukkan perkembangan yang baik.',
+            'additional_notes' => 'Latihan membaca dilanjutkan di rumah.',
+            'created_by' => auth()->id(),
+        ]);
+
+        $report = $learningClass->reports()->firstOrFail();
+        $this->get(route('learning-classes.reports.index', ['learningClass' => $learningClass, ...$selectedPeriod]))
+            ->assertOk()
+            ->assertSee('Unduh PDF')
+            ->assertSee(route('learning-classes.reports.download', ['learningClass' => $learningClass, 'report' => $report]), false)
+            ->assertDontSee('Murid Report')
+            ->assertDontSee('Program')
+            ->assertDontSee('Evaluasi perkembangan')
+            ->assertDontSee('Catatan tambahan');
+
+        $lessonStatus = LearningClassLessonStatus::query()
+            ->where('system_key', 'sedang_berlangsung')
+            ->firstOrFail();
+        $learningClass->lessons()->create([
+            'teacher_id' => $teacher->id,
+            'lesson_date' => '2026-03-12',
+            'lesson_time' => '09:30',
+            'duration_minutes' => 60,
+            'status' => $lessonStatus->code,
+            'teacher_attendance_at' => '2026-03-12 09:25:00',
+            'lesson_description' => 'Belajar membaca cerita pendek.',
+        ]);
+        $learningClass->lessons()->create([
+            'teacher_id' => $teacher->id,
+            'lesson_date' => '2026-05-02',
+            'lesson_time' => '09:30',
+            'duration_minutes' => 60,
+            'status' => $lessonStatus->code,
+            'teacher_attendance_at' => '2026-05-02 09:25:00',
+            'lesson_description' => 'Di luar periode report.',
+        ]);
+
+        $pdfResponse = $this->get(route('learning-classes.reports.download', [
+            'learningClass' => $learningClass,
+            'report' => $report,
+        ]));
+        $pdfResponse->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
+        $this->assertStringStartsWith('%PDF-', $pdfResponse->getContent());
+
+        $this->get(route('learning-classes.reports.index', ['learningClass' => $learningClass, ...$selectedPeriod]))
+            ->assertOk()
+            ->assertSee('Februari 2026')
+            ->assertSee('Guru Report')
+            ->assertSee('Unduh PDF')
+            ->assertDontSee('Tidak ada report pada periode yang dipilih.');
+
+        $this->get(route('learning-classes.reports.index', [
+            'learningClass' => $learningClass,
+            'period_start' => '2026-05',
+            'period_end' => '2026-06',
+        ]))
+            ->assertOk()
+            ->assertSee('Tidak ada report pada periode yang dipilih.')
+            ->assertDontSee('Guru Report');
+
+        $this->from(route('learning-classes.reports.create', ['learningClass' => $learningClass, ...$period]))
+            ->post(route('learning-classes.reports.store', $learningClass), [
+                'period_start' => '2026-04',
+                'period_end' => '2026-03',
+            ])
+            ->assertRedirect(route('learning-classes.reports.create', ['learningClass' => $learningClass, ...$period]))
+            ->assertSessionHasErrors('period_end');
+
+        $this->assertDatabaseCount('learning_class_reports', 1);
+    }
+
+    public function test_teacher_can_only_view_reports_for_their_primary_classes(): void
+    {
+        $teacher = User::factory()->create(['role' => 'guru']);
+        $otherTeacher = User::factory()->create(['role' => 'guru']);
+        $student = User::factory()->create(['role' => 'murid']);
+        $teacherClass = $this->createClassForVisibility('Report Guru', $teacher, $student);
+        $otherClass = $this->createClassForVisibility('Report Guru Lain', $otherTeacher, $student);
+
+        Role::query()->where('code', 'guru')->firstOrFail()->permissions()->syncWithoutDetaching([
+            'class_reports.view',
+            'class_reports.create',
+        ]);
+
+        $this->actingAs($teacher)
+            ->get(route('learning-classes.reports.index', $teacherClass))
+            ->assertOk();
+
+        $this->get(route('learning-classes.reports.index', $otherClass))->assertNotFound();
+        $this->get(route('learning-classes.reports.create', $otherClass))->assertNotFound();
+    }
+
+    public function test_teacher_and_student_only_see_their_classes_and_cannot_open_other_class_details(): void
+    {
+        $teacher = User::factory()->create(['name' => 'Guru Aktif', 'role' => 'guru']);
+        $otherTeacher = User::factory()->create(['name' => 'Guru Lain', 'role' => 'guru']);
+        $student = User::factory()->create(['name' => 'Murid Aktif', 'role' => 'murid']);
+        $otherStudent = User::factory()->create(['name' => 'Murid Lain', 'role' => 'murid']);
+        $teacherClass = $this->createClassForVisibility('Kelas Guru Aktif', $teacher, $student);
+        $otherTeacherClass = $this->createClassForVisibility('Kelas Guru Lain', $otherTeacher, $otherStudent);
+        $studentClass = $this->createClassForVisibility('Kelas Murid Aktif', $otherTeacher, $student);
+        $substituteOnlyClass = $this->createClassForVisibility('Kelas Guru Pengganti', $otherTeacher, $otherStudent);
+
+        $teacherClass->lessons()->create([
+            'teacher_id' => $teacher->id,
+            'lesson_date' => now()->startOfMonth()->addDays(2)->toDateString(),
+            'lesson_time' => '09:30',
+        ]);
+        $substituteOnlyClass->lessons()->create([
+            'teacher_id' => $teacher->id,
+            'lesson_date' => now()->startOfMonth()->addDays(3)->toDateString(),
+            'lesson_time' => '09:30',
+        ]);
+
+        Role::query()->whereIn('code', ['guru', 'murid'])->get()->each(
+            fn (Role $role) => $role->permissions()->syncWithoutDetaching([
+                'learning_classes.view',
+                'learning_classes.show',
+            ]),
+        );
+
+        $this->actingAs($teacher)
+            ->get(route('learning-classes.index', ['month' => now()->format('Y-m')]))
+            ->assertOk()
+            ->assertSee('Kelas Guru Aktif')
+            ->assertDontSee('Kelas Guru Pengganti')
+            ->assertDontSee('Kelas Guru Lain')
+            ->assertDontSee('Kelas Murid Aktif');
+
+        $this->get(route('learning-classes.show', $otherTeacherClass))->assertNotFound();
+        $this->get(route('learning-classes.show', $substituteOnlyClass))->assertNotFound();
+        $this->get(route('learning-classes.show', $teacherClass))->assertOk();
+
+        $this->actingAs($student)
+            ->get(route('learning-classes.index'))
+            ->assertOk()
+            ->assertSee('Kelas Guru Aktif')
+            ->assertSee('Kelas Murid Aktif')
+            ->assertDontSee('Kelas Guru Lain');
+
+        $this->get(route('learning-classes.show', $otherTeacherClass))->assertNotFound();
+        $this->get(route('learning-classes.show', $studentClass))->assertOk();
     }
 
     public function test_class_rejects_users_with_incorrect_roles_and_invalid_day(): void
@@ -412,5 +606,16 @@ class LearningClassTest extends TestCase
             ->assertRedirect(route('master-data.index', ['role' => 'murid']))
             ->assertSessionHasErrors('user');
         $this->assertDatabaseHas('users', ['id' => $student->id]);
+    }
+
+    private function createClassForVisibility(string $name, User $teacher, User $student): LearningClass
+    {
+        return LearningClass::query()->create([
+            'name' => $name,
+            'teacher_id' => $teacher->id,
+            'student_id' => $student->id,
+            'program_id' => LookupValue::query()->where('category', 'program')->firstOrFail()->id,
+            'category_id' => LookupValue::query()->where('category', 'class_category')->firstOrFail()->id,
+        ]);
     }
 }

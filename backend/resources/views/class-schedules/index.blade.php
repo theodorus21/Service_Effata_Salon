@@ -14,24 +14,28 @@
 
     <section class="panel schedule-filter-panel" aria-label="Filter jadwal kelas">
         <form class="schedule-filter-form" method="GET" action="{{ route('class-schedules.index') }}">
-            <div class="master-data-field">
-                <label for="teacher_id">Nama guru</label>
-                <select id="teacher_id" name="teacher_id">
-                    <option value="">Semua guru</option>
-                    @foreach ($teachers as $teacher)
-                        <option value="{{ $teacher->id }}" @selected((string) request('teacher_id') === (string) $teacher->id)>{{ $teacher->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="master-data-field">
-                <label for="student_id">Nama murid</label>
-                <select id="student_id" name="student_id">
-                    <option value="">Semua murid</option>
-                    @foreach ($students as $student)
-                        <option value="{{ $student->id }}" @selected((string) request('student_id') === (string) $student->id)>{{ $student->name }}</option>
-                    @endforeach
-                </select>
-            </div>
+            @if ($showTeacherFilter)
+                <div class="master-data-field">
+                    <label for="teacher_id">Nama guru</label>
+                    <select id="teacher_id" name="teacher_id">
+                        <option value="">Semua guru</option>
+                        @foreach ($teachers as $teacher)
+                            <option value="{{ $teacher->id }}" @selected((string) request('teacher_id') === (string) $teacher->id)>{{ $teacher->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+            @if ($showStudentFilter)
+                <div class="master-data-field">
+                    <label for="student_id">Nama murid</label>
+                    <select id="student_id" name="student_id">
+                        <option value="">Semua murid</option>
+                        @foreach ($students as $student)
+                            <option value="{{ $student->id }}" @selected((string) request('student_id') === (string) $student->id)>{{ $student->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
             <div class="master-data-field">
                 <label for="month">Bulan</label>
                 <input id="month" name="month" type="month" value="{{ $month->format('Y-m') }}">
@@ -65,7 +69,6 @@
                     <tr>
                         <th>Nama kelas</th>
                         <th>Nama murid</th>
-                        <th>Nama guru</th>
                         <th>Program</th>
                         <th>Hari &amp; jam</th>
                         <th>Aksi</th>
@@ -76,7 +79,6 @@
                         <tr>
                             <td><strong>{{ $learningClass->name }}</strong></td>
                             <td>{{ $learningClass->student->name }}</td>
-                            <td>{{ $learningClass->teacher->name }}</td>
                             <td>{{ $learningClass->program->value }}</td>
                             <td class="class-schedules-cell">
                                 <div class="class-schedule-list">
@@ -96,7 +98,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td class="master-data-empty" colspan="6">Tidak ada jadwal kelas yang sesuai dengan filter.</td>
+                            <td class="master-data-empty" colspan="5">Tidak ada jadwal kelas yang sesuai dengan filter.</td>
                         </tr>
                     @endforelse
                 </tbody>

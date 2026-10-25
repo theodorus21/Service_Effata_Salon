@@ -6,11 +6,13 @@ use App\Models\LearningClass;
 use App\Models\LearningClassLesson;
 use App\Models\LearningClassLessonRescheduleHistory;
 use App\Models\LearningClassLessonStatus;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use RuntimeException;
@@ -21,7 +23,14 @@ class LearningClassLessonActionController extends Controller
     public function show(LearningClass $learningClass, LearningClassLesson $lesson): View
     {
         $this->ensureLessonBelongsToClass($learningClass, $lesson);
-        $lesson->load(['lessonStatus', 'rescheduleHistories.updatedBy']);
+        $this->ensureLessonIsVisibleToUser($learningClass, $lesson);
+        $lesson->load([
+            'lessonStatus',
+            'teacher',
+            'rescheduleHistories.updatedBy',
+            'rescheduleHistories.oldTeacher',
+            'rescheduleHistories.newTeacher',
+        ]);
         $learningClass->load(['student', 'teacher', 'program', 'category']);
 
         return view('class-schedules.lesson-detail', compact('learningClass', 'lesson'));
@@ -90,6 +99,7 @@ class LearningClassLessonActionController extends Controller
     public function lessonPhoto(LearningClass $learningClass, LearningClassLesson $lesson): StreamedResponse
     {
         $this->ensureLessonBelongsToClass($learningClass, $lesson);
+        $this->ensureLessonIsVisibleToUser($learningClass, $lesson);
         abort_unless($lesson->lesson_photo && Storage::disk('local')->exists($lesson->lesson_photo), 404);
 
         return Storage::disk('local')->response($lesson->lesson_photo);
@@ -100,7 +110,11 @@ class LearningClassLessonActionController extends Controller
         $this->ensureLessonBelongsToClass($learningClass, $lesson);
         $this->ensureLessonIsPending($lesson, 'Jadwal hanya dapat dipindahkan sebelum kelas berlangsung.');
 
-        return view('class-schedules.reschedule', compact('learningClass', 'lesson'));
+        return view('class-schedules.reschedule', [
+            'learningClass' => $learningClass,
+            'lesson' => $lesson->load('teacher'),
+            'teachers' => User::query()->where('role', 'guru')->orderBy('name')->get(),
+        ]);
     }
 
     public function updateReschedule(Request $request, LearningClass $learningClass, LearningClassLesson $lesson): RedirectResponse
@@ -115,6 +129,8 @@ class LearningClassLessonActionController extends Controller
                 'date_format:H:i',
             ],
             'duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+            'teacher_id' => ['required', 'integer', Rule::exists('users', 'id')->where('role', 'guru')],
+            'reason' => ['required', 'string', 'max:5000'],
         ]);
 
         $this->validateNoScheduleConflict($learningClass, $lesson, $data);
@@ -123,22 +139,32 @@ class LearningClassLessonActionController extends Controller
             $lesson->lesson_date === $data['lesson_date']
             && substr($lesson->lesson_time, 0, 5) === $data['lesson_time']
             && $lesson->duration_minutes === (int) $data['duration_minutes']
+            && ($lesson->teacher_id ?? $learningClass->teacher_id) === (int) $data['teacher_id']
         ) {
             return $this->returnToLessonList($lesson)
                 ->with('status', 'Tanggal dan jam tidak berubah; riwayat jadwal tidak ditambahkan.');
         }
 
         DB::transaction(function () use ($request, $data, $lesson): void {
+            $learningClass = $lesson->learningClass;
             LearningClassLessonRescheduleHistory::query()->create([
                 'learning_class_lesson_id' => $lesson->id,
                 'old_lesson_date' => $lesson->lesson_date,
                 'old_lesson_time' => $lesson->lesson_time,
                 'new_lesson_date' => $data['lesson_date'],
                 'new_lesson_time' => $data['lesson_time'],
+                'reason' => $data['reason'],
+                'old_teacher_id' => $lesson->teacher_id ?? $learningClass->teacher_id,
+                'new_teacher_id' => $data['teacher_id'],
                 'updated_by' => $request->user()?->getAuthIdentifier(),
             ]);
 
-            $lesson->update($data);
+            $lesson->update([
+                'lesson_date' => $data['lesson_date'],
+                'lesson_time' => $data['lesson_time'],
+                'duration_minutes' => $data['duration_minutes'],
+                'teacher_id' => $data['teacher_id'],
+            ]);
         });
 
         return $this->returnToLessonList($lesson->refresh())
@@ -152,7 +178,7 @@ class LearningClassLessonActionController extends Controller
 
         $data = $request->validate([
             'cancel_lesson_id' => ['nullable', 'integer'],
-            'cancellation_reason' => ['required', 'string', 'max:5000'],
+            'reason' => ['required', 'string', 'max:5000'],
         ]);
         $cancelledStatus = LearningClassLessonStatus::query()
             ->where('system_key', 'dibatalkan')
@@ -160,7 +186,7 @@ class LearningClassLessonActionController extends Controller
 
         $lesson->update([
             'status' => $cancelledStatus->code,
-            'lesson_description' => $data['cancellation_reason'],
+            'reason' => $data['reason'],
         ]);
 
         return $this->returnToLessonList($lesson)
@@ -170,6 +196,20 @@ class LearningClassLessonActionController extends Controller
     private function ensureLessonBelongsToClass(LearningClass $learningClass, LearningClassLesson $lesson): void
     {
         abort_unless($lesson->learning_class_id === $learningClass->id, 404);
+    }
+
+    private function ensureLessonIsVisibleToUser(LearningClass $learningClass, LearningClassLesson $lesson): void
+    {
+        $user = request()->user();
+
+        if ($user->role === 'murid') {
+            abort_unless($learningClass->student_id === $user->id, 404);
+        } elseif ($user->role === 'guru') {
+            abort_unless(
+                ($lesson->teacher_id ?? $learningClass->teacher_id) === $user->id,
+                404,
+            );
+        }
     }
 
     private function isCancelled(LearningClassLesson $lesson): bool
@@ -228,7 +268,7 @@ class LearningClassLessonActionController extends Controller
     }
 
     /**
-     * @param  array{lesson_date: string, lesson_time: string, duration_minutes: int|string}  $data
+     * @param  array{lesson_date: string, lesson_time: string, duration_minutes: int|string, teacher_id: int|string}  $data
      */
     private function validateNoScheduleConflict(
         LearningClass $learningClass,
@@ -263,11 +303,16 @@ class LearningClassLessonActionController extends Controller
             ])
             ->where('status', '!=', $cancelledStatus->code)
             ->where('id', '!=', $lesson->id)
-            ->whereHas('learningClass', function ($query) use ($learningClass): void {
-                $query->where(function ($query) use ($learningClass): void {
-                    $query->where('teacher_id', $learningClass->teacher_id)
-                        ->orWhere('student_id', $learningClass->student_id);
-                });
+            ->where(function ($query) use ($learningClass, $data): void {
+                $query->whereHas('learningClass', function ($classQuery) use ($learningClass): void {
+                    $classQuery->where('student_id', $learningClass->student_id);
+                })->orWhere('teacher_id', $data['teacher_id'])
+                    ->orWhere(function ($lessonQuery) use ($data): void {
+                        $lessonQuery->whereNull('teacher_id')
+                            ->whereHas('learningClass', function ($classQuery) use ($data): void {
+                                $classQuery->where('teacher_id', $data['teacher_id']);
+                            });
+                    });
             })
             ->get();
 

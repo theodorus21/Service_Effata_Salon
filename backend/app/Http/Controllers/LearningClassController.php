@@ -6,9 +6,9 @@ use App\Models\LearningClass;
 use App\Models\LearningClassSchedule;
 use App\Models\LookupValue;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -26,17 +26,14 @@ class LearningClassController extends Controller
 
     public function index(Request $request): View
     {
-        $filters = $request->validate([
-            'month' => ['nullable', 'date_format:Y-m'],
-        ]);
+        $classes = LearningClass::query()
+            ->with(['student', 'teacher', 'program', 'category', 'schedules'])
+            ->when($request->user()->role === 'murid', fn ($query) => $query->where('student_id', $request->user()->id))
+            ->when($request->user()->role === 'guru', fn ($query) => $query->where('teacher_id', $request->user()->id));
 
         return view('learning-classes.index', [
-            'classes' => LearningClass::query()
-                ->with(['student', 'teacher', 'program', 'category', 'schedules'])
-                ->orderBy('name')
-                ->paginate(10),
+            'classes' => $classes->orderBy('name')->paginate(10)->withQueryString(),
             'days' => self::DAYS,
-            'month' => $filters['month'] ?? now()->format('Y-m'),
         ]);
     }
 
@@ -65,8 +62,15 @@ class LearningClassController extends Controller
             ->with('status', 'Kelas berhasil ditambahkan.');
     }
 
-    public function show(LearningClass $learningClass): View
+    public function show(Request $request, LearningClass $learningClass): View
     {
+        $user = $request->user();
+        if ($user->role === 'murid') {
+            abort_unless($learningClass->student_id === $user->id, 404);
+        } elseif ($user->role === 'guru') {
+            abort_unless($learningClass->teacher_id === $user->id, 404);
+        }
+
         $learningClass->load(['student', 'teacher', 'program', 'category', 'schedules']);
 
         return view('learning-classes.show', [

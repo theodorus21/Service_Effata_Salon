@@ -11,11 +11,6 @@
             <p>Kelola murid, guru, program, dan jadwal kelas.</p>
         </div>
         <div class="learning-class-heading-actions">
-            <form class="generate-month-form" method="GET" action="{{ route('learning-classes.index') }}">
-                <label for="generate-month">Bulan jadwal</label>
-                <input id="generate-month" name="month" type="month" value="{{ $month }}">
-                <button class="secondary-action" type="submit">Pilih bulan</button>
-            </form>
             @if (auth()->user()->hasPermission('learning_classes.create'))
             <a class="primary-action" href="{{ route('learning-classes.create') }}">
                 <span aria-hidden="true">+</span> Tambah Kelas
@@ -83,15 +78,14 @@
                                     @if (auth()->user()->hasPermission('learning_classes.show'))
                                         <a class="table-action" href="{{ route('learning-classes.show', $learningClass) }}">Detail</a>
                                     @endif
+                                    @if (auth()->user()->hasPermission('class_reports.view'))
+                                        <a class="table-action" href="{{ route('learning-classes.reports.index', $learningClass) }}">Report</a>
+                                    @endif
                                     @if (auth()->user()->hasPermission('learning_classes.update'))
                                         <a class="table-action" href="{{ route('learning-classes.edit', $learningClass) }}">Ubah</a>
                                     @endif
                                     @if (auth()->user()->hasPermission('learning_classes.generate'))
-                                    <form method="POST" action="{{ route('learning-classes.lessons.generate', $learningClass) }}" onsubmit="return confirm('Generate jadwal les untuk {{ $month }}? Jadwal yang sudah tercatat tidak akan diubah.')">
-                                        @csrf
-                                        <input type="hidden" name="month" value="{{ $month }}">
-                                        <button class="table-action table-action-generate" type="submit">Generate jadwal</button>
-                                    </form>
+                                        <a class="table-action table-action-generate" href="{{ route('learning-classes.lessons.generate.form', $learningClass) }}">Generate jadwal</a>
                                     @endif
                                     @if (auth()->user()->hasPermission('learning_classes.delete'))
                                     <form method="POST" action="{{ route('learning-classes.destroy', $learningClass) }}" onsubmit="return confirm('Hapus kelas ini?')">

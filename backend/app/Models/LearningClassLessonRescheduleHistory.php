@@ -12,6 +12,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'old_lesson_time',
     'new_lesson_date',
     'new_lesson_time',
+    'reason',
+    'old_teacher_id',
+    'new_teacher_id',
     'updated_by',
 ])]
 class LearningClassLessonRescheduleHistory extends Model
@@ -24,5 +27,15 @@ class LearningClassLessonRescheduleHistory extends Model
     public function updatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    public function oldTeacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'old_teacher_id');
+    }
+
+    public function newTeacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'new_teacher_id');
     }
 }

@@ -49,6 +49,30 @@ class AuthenticatedSessionTest extends TestCase
         $this->get(route('learning-classes.index'))->assertOk();
     }
 
+    public function test_brand_logo_is_used_on_signin_dashboard_and_as_favicon(): void
+    {
+        $logoUrl = asset('images/effata-logo.jpg');
+
+        $this->get(route('signin'))
+            ->assertOk()
+            ->assertSee('rel="icon" type="image/jpeg" href="'.$logoUrl.'"', false)
+            ->assertSee('class="brand-logo" src="'.$logoUrl.'"', false);
+
+        $this->get(route('signup'))
+            ->assertOk()
+            ->assertSee('rel="icon" type="image/jpeg" href="'.$logoUrl.'"', false)
+            ->assertSee('class="brand-logo" src="'.$logoUrl.'"', false);
+
+        $this->actingAs(User::factory()->create([
+            'role' => User::ROLE_MASTER_ADMIN,
+        ]))->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('rel="icon" type="image/jpeg" href="'.$logoUrl.'"', false)
+            ->assertSee('class="dashboard-logo" src="'.$logoUrl.'"', false);
+
+        $this->assertFileExists(public_path('images/effata-logo.jpg'));
+    }
+
     public function test_invalid_credentials_return_to_signin_with_error(): void
     {
         User::factory()->create([

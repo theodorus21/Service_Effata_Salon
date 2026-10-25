@@ -39,4 +39,9 @@ class LearningClass extends Model
     {
         return $this->hasMany(LearningClassLesson::class)->orderBy('lesson_date')->orderBy('lesson_time');
     }
+
+    public function reports(): HasMany
+    {
+        return $this->hasMany(LearningClassReport::class);
+    }
 }

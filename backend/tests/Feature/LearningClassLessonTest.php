@@ -7,13 +7,14 @@ use App\Models\LearningClassLesson;
 use App\Models\LookupValue;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\Feature\Concerns\AuthenticatesAsMasterAdmin;
 use Tests\TestCase;
 
 class LearningClassLessonTest extends TestCase
 {
-    use RefreshDatabase;
     use AuthenticatesAsMasterAdmin;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -23,16 +24,24 @@ class LearningClassLessonTest extends TestCase
 
     public function test_class_list_can_generate_monthly_lesson_records_from_weekly_schedules(): void
     {
+        $this->travelTo(Carbon::parse('2026-10-01 00:00:00'));
         $learningClass = $this->createMondayClass();
 
         $this->get(route('learning-classes.index', ['month' => '2026-10']))
             ->assertOk()
             ->assertSee('value="2026-10"', false)
-            ->assertSee(route('learning-classes.lessons.generate', $learningClass), false)
+            ->assertSee(route('learning-classes.lessons.generate.form', $learningClass), false)
             ->assertSee('Generate jadwal');
 
+        $this->get(route('learning-classes.lessons.generate.form', $learningClass))
+            ->assertOk()
+            ->assertSee('Generate Jadwal Les')
+            ->assertSee('name="month"', false)
+            ->assertSee('name="year"', false);
+
         $this->post(route('learning-classes.lessons.generate', $learningClass), [
-            'month' => '2026-10',
+            'month' => 10,
+            'year' => 2026,
         ])
             ->assertRedirect(route('learning-classes.index', ['month' => '2026-10']))
             ->assertSessionHas('status');
@@ -61,17 +70,18 @@ class LearningClassLessonTest extends TestCase
 
     public function test_generating_same_month_again_does_not_duplicate_or_overwrite_lesson_records(): void
     {
+        $this->travelTo(Carbon::parse('2026-10-01 00:00:00'));
         $learningClass = $this->createMondayClass();
         $route = route('learning-classes.lessons.generate', $learningClass);
 
-        $this->post($route, ['month' => '2026-10'])->assertRedirect();
+        $this->post($route, ['month' => 10, 'year' => 2026])->assertRedirect();
         $lesson = LearningClassLesson::query()->firstOrFail();
         $lesson->update([
             'teacher_attendance_at' => '2026-10-05 09:20:00',
             'lesson_description' => 'Catatan sesi sudah berlangsung.',
         ]);
 
-        $this->post($route, ['month' => '2026-10'])
+        $this->post($route, ['month' => 10, 'year' => 2026])
             ->assertRedirect(route('learning-classes.index', ['month' => '2026-10']))
             ->assertSessionHas('status', fn (string $status): bool => str_starts_with($status, '0 jadwal les'));
 
@@ -83,13 +93,34 @@ class LearningClassLessonTest extends TestCase
         ]);
     }
 
+    public function test_generation_only_creates_sessions_after_today(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-19 09:30:00'));
+        $learningClass = $this->createMondayClass();
+
+        $this->post(route('learning-classes.lessons.generate', $learningClass), [
+            'month' => 10,
+            'year' => 2026,
+        ])->assertRedirect();
+
+        $this->assertDatabaseCount('learning_class_lessons', 1);
+        $this->assertDatabaseHas('learning_class_lessons', [
+            'learning_class_id' => $learningClass->id,
+            'lesson_date' => '2026-10-26',
+        ]);
+        $this->assertDatabaseMissing('learning_class_lessons', [
+            'learning_class_id' => $learningClass->id,
+            'lesson_date' => '2026-10-19',
+        ]);
+    }
+
     public function test_generation_requires_a_valid_month(): void
     {
         $learningClass = $this->createMondayClass();
 
-        $this->from(route('learning-classes.index'))
-            ->post(route('learning-classes.lessons.generate', $learningClass), ['month' => 'not-a-month'])
-            ->assertRedirect(route('learning-classes.index'))
+        $this->from(route('learning-classes.lessons.generate.form', $learningClass))
+            ->post(route('learning-classes.lessons.generate', $learningClass), ['month' => 13, 'year' => 2026])
+            ->assertRedirect(route('learning-classes.lessons.generate.form', $learningClass))
             ->assertSessionHasErrors('month');
 
         $this->assertDatabaseCount('learning_class_lessons', 0);

@@ -7,6 +7,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\View\View;
 
 class LearningClassLessonController extends Controller
 {
@@ -20,20 +21,38 @@ class LearningClassLessonController extends Controller
         7 => 'minggu',
     ];
 
+    public function create(LearningClass $learningClass): View
+    {
+        $learningClass->load(['schedules', 'student', 'teacher']);
+
+        return view('learning-classes.generate-lessons', [
+            'learningClass' => $learningClass,
+            'month' => now()->month,
+            'year' => now()->year,
+        ]);
+    }
+
     public function generate(Request $request, LearningClass $learningClass): RedirectResponse
     {
         $data = $request->validate([
-            'month' => ['required', 'date_format:Y-m'],
+            'month' => ['required', 'integer', 'between:1,12'],
+            'year' => ['required', 'integer', 'between:2000,2100'],
         ]);
-        $month = CarbonImmutable::createFromFormat('!Y-m', $data['month']);
+        $month = CarbonImmutable::createFromDate((int) $data['year'], (int) $data['month'], 1);
         $schedulesByDay = $learningClass->schedules->groupBy('day');
         $lessons = [];
         $now = now();
+        $today = CarbonImmutable::today();
 
         for ($date = $month->startOfMonth(); $date <= $month->endOfMonth(); $date = $date->addDay()) {
+            if (! $date->isAfter($today)) {
+                continue;
+            }
+
             foreach ($schedulesByDay->get(self::ISO_DAYS[$date->isoWeekday()], collect()) as $schedule) {
                 $lessons[] = [
                     'learning_class_id' => $learningClass->id,
+                    'teacher_id' => $learningClass->teacher_id,
                     'lesson_date' => $date->toDateString(),
                     'lesson_time' => $schedule->lesson_time,
                     'duration_minutes' => $schedule->duration_minutes,

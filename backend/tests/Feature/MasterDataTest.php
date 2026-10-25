@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\LearningClass;
+use App\Models\LookupValue;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -13,8 +16,8 @@ use Tests\TestCase;
 
 class MasterDataTest extends TestCase
 {
-    use RefreshDatabase;
     use AuthenticatesAsMasterAdmin;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -51,6 +54,65 @@ class MasterDataTest extends TestCase
         $databaseColumns = Schema::getColumnListing($user->getTable());
 
         $this->assertSame([], array_values(array_diff($user->getFillable(), $databaseColumns)));
+        $this->assertSame('varchar', Schema::getColumnType('users', 'status'));
+    }
+
+    public function test_user_status_defaults_to_active_and_can_be_changed_in_edit_form(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'murid',
+        ]);
+
+        $this->assertSame('active', $user->status);
+
+        $this->get(route('master-data.create', ['role' => 'murid']))
+            ->assertOk()
+            ->assertDontSee('name="status"', false);
+
+        $this->get(route('master-data.edit', ['role' => 'murid', 'user' => $user->id]))
+            ->assertOk()
+            ->assertSee('name="status"', false)
+            ->assertSee('<option value="active" selected>', false)
+            ->assertSee('<option value="inactive"', false);
+
+        $this->put(route('master-data.update', ['role' => 'murid', 'user' => $user->id]), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'nickname' => 'Panggilan',
+            'parent_name' => 'Orang Tua',
+            'parent_phone' => '08123456789',
+            'child_pickup_person' => 'Ibu',
+            'emergency_contact_name' => 'Kontak',
+            'emergency_contact_phone' => '08234567890',
+            'birth_date' => '2018-05-12',
+            'address' => 'Alamat',
+            'child_characteristics' => 'Aktif',
+            'child_hobbies' => 'Membaca',
+            'reference' => 'Referensi',
+            'status' => 'inactive',
+        ])->assertRedirect(route('master-data.index', ['role' => 'murid']));
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'status' => 'inactive',
+        ]);
+
+        $this->put(route('master-data.update', ['role' => 'murid', 'user' => $user->id]), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'nickname' => 'Panggilan',
+            'parent_name' => 'Orang Tua',
+            'parent_phone' => '08123456789',
+            'child_pickup_person' => 'Ibu',
+            'emergency_contact_name' => 'Kontak',
+            'emergency_contact_phone' => '08234567890',
+            'birth_date' => '2018-05-12',
+            'address' => 'Alamat',
+            'child_characteristics' => 'Aktif',
+            'child_hobbies' => 'Membaca',
+            'reference' => 'Referensi',
+            'status' => 'suspended',
+        ])->assertSessionHasErrors('status');
     }
 
     public function test_master_admin_and_owner_roles_are_supported_without_master_data_crud(): void
@@ -113,6 +175,65 @@ class MasterDataTest extends TestCase
             ->assertSee('Detail')
             ->assertSee('Orang Tua A')
             ->assertDontSee('Tanggal lahir');
+    }
+
+    public function test_teacher_only_sees_students_they_teach_as_primary_or_substitute(): void
+    {
+        Storage::fake('local');
+        $teacher = User::factory()->create(['name' => 'Guru Pemilik', 'role' => 'guru']);
+        $otherTeacher = User::factory()->create(['name' => 'Guru Lain', 'role' => 'guru']);
+        $primaryStudent = User::factory()->create(['name' => 'Murid Guru Utama', 'role' => 'murid']);
+        $substituteStudent = User::factory()->create([
+            'name' => 'Murid Guru Pengganti',
+            'role' => 'murid',
+            'child_photo' => UploadedFile::fake()->image('child.jpg')->store('murid-documents/photos', 'local'),
+        ]);
+        $unrelatedStudent = User::factory()->create(['name' => 'Murid Lain', 'role' => 'murid']);
+        $programId = LookupValue::query()->where('category', 'program')->firstOrFail()->id;
+        $categoryId = LookupValue::query()->where('category', 'class_category')->firstOrFail()->id;
+
+        $createClass = static fn (string $name, User $classTeacher, User $student): LearningClass => LearningClass::query()->create([
+            'name' => $name,
+            'teacher_id' => $classTeacher->id,
+            'student_id' => $student->id,
+            'program_id' => $programId,
+            'category_id' => $categoryId,
+        ]);
+        $createClass('Kelas Utama', $teacher, $primaryStudent);
+        $substituteClass = $createClass('Kelas Pengganti', $otherTeacher, $substituteStudent);
+        $createClass('Kelas Lain', $otherTeacher, $unrelatedStudent);
+        $substituteClass->lessons()->create([
+            'teacher_id' => $teacher->id,
+            'lesson_date' => '2026-10-05',
+            'lesson_time' => '09:30',
+        ]);
+
+        Role::query()->where('code', 'guru')->firstOrFail()->permissions()
+            ->syncWithoutDetaching(['master_data.murid.view', 'master_data.murid.detail', 'master_data.murid.images']);
+
+        $response = $this->actingAs($teacher)->get(route('master-data.index', ['role' => 'murid']))
+            ->assertOk()
+            ->assertSee('Murid Guru Utama')
+            ->assertSee('Murid Guru Pengganti')
+            ->assertDontSee('Murid Lain');
+        $this->assertEqualsCanonicalizing(
+            [$primaryStudent->id, $substituteStudent->id],
+            $response->viewData('users')->getCollection()->pluck('id')->all(),
+        );
+
+        $this->get(route('master-data.show', ['role' => 'murid', 'user' => $primaryStudent->id]))->assertOk();
+        $this->get(route('master-data.show', ['role' => 'murid', 'user' => $substituteStudent->id]))->assertOk();
+        $this->get(route('master-data.show', ['role' => 'murid', 'user' => $unrelatedStudent->id]))->assertNotFound();
+        $this->get(route('master-data.image', [
+            'role' => 'murid',
+            'user' => $substituteStudent->id,
+            'image' => 'child_photo',
+        ]))->assertOk();
+        $this->get(route('master-data.image', [
+            'role' => 'murid',
+            'user' => $unrelatedStudent->id,
+            'image' => 'child_photo',
+        ]))->assertNotFound();
     }
 
     public function test_guru_detail_page_shows_profile_and_private_images(): void
@@ -316,6 +437,7 @@ class MasterDataTest extends TestCase
         $this->assertSame('2018-05-12', $user->birth_date->toDateString());
         $this->assertTrue(Hash::check('20180512', $user->password));
         $this->assertTrue($user->created_date !== null);
+        $this->assertSame(auth()->id(), $user->created_by);
         Storage::disk('local')->assertExists($user->child_photo);
 
         $this->put(route('master-data.update', ['role' => 'murid', 'user' => $user->id]), [
@@ -332,10 +454,12 @@ class MasterDataTest extends TestCase
             'child_characteristics' => 'Aktif',
             'child_hobbies' => 'Membaca',
             'reference' => 'Teman',
+            'status' => 'active',
         ])->assertRedirect(route('master-data.index', ['role' => 'murid']));
 
         $user->refresh();
         $this->assertSame('Anak Diperbarui', $user->name);
+        $this->assertSame(auth()->id(), $user->updated_by);
         Storage::disk('local')->assertExists($user->child_photo);
 
         $this->delete(route('master-data.destroy', ['role' => 'murid', 'user' => $user->id]))
@@ -413,6 +537,7 @@ class MasterDataTest extends TestCase
             'address' => 'Alamat baru',
             'email' => 'admin-profile@example.test',
             'selfie_image' => UploadedFile::fake()->image('admin-selfie-new.jpg'),
+            'status' => 'active',
         ])->assertRedirect(route('master-data.index', ['role' => 'admin']));
 
         $admin->refresh();
@@ -462,6 +587,7 @@ class MasterDataTest extends TestCase
             'teaching_quote' => 'Belajar.',
             'birth_date' => '1990-04-09',
             'address' => 'Alamat',
+            'status' => 'active',
         ])->assertSessionHasNoErrors();
     }
 
@@ -499,6 +625,7 @@ class MasterDataTest extends TestCase
             'birth_date' => today()->addDay()->toDateString(),
             'address' => 'Alamat',
             'email' => $guru->email,
+            'status' => 'active',
         ])->assertSessionHasErrors('birth_date');
     }
 
@@ -525,6 +652,7 @@ class MasterDataTest extends TestCase
             'address' => 'Alamat baru',
             'email' => $user->email,
             'selfie_image' => UploadedFile::fake()->image('new-selfie.jpg'),
+            'status' => 'active',
         ])->assertRedirect(route('master-data.index', ['role' => 'guru']));
 
         $user->refresh();

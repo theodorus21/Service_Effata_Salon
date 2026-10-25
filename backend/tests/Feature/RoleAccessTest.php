@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -10,8 +11,8 @@ use Tests\TestCase;
 
 class RoleAccessTest extends TestCase
 {
-    use RefreshDatabase;
     use AuthenticatesAsMasterAdmin;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -159,7 +160,7 @@ class RoleAccessTest extends TestCase
         ])->assertRedirect(route('role-access.permissions.edit', $masterAdmin));
 
         $this->assertSame(
-            \App\Models\Permission::query()->count(),
+            Permission::query()->count(),
             $masterAdmin->permissions()->count(),
         );
     }
@@ -184,11 +185,33 @@ class RoleAccessTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('role');
 
+        $this->putJson('/api/v1/users/'.$otherUser->id, [
+            'status' => 'inactive',
+            'updatedBy' => 99999,
+        ])
+            ->assertOk()
+            ->assertJsonPath('status', 'inactive');
+        $this->assertDatabaseHas('users', [
+            'id' => $otherUser->id,
+            'status' => 'inactive',
+            'updated_by' => $user->id,
+        ]);
+
+        $this->putJson('/api/v1/users/'.$otherUser->id, ['status' => 'suspended'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
         $this->postJson('/api/v1/users', [
             'name' => 'Pendaftar Baru',
             'email' => 'pendaftar@example.com',
             'password' => 'password123',
             'role' => 'user',
-        ])->assertCreated();
+            'createdBy' => 99999,
+        ])->assertCreated()
+            ->assertJsonPath('status', 'active');
+        $this->assertDatabaseHas('users', [
+            'email' => 'pendaftar@example.com',
+            'created_by' => $user->id,
+        ]);
     }
 }

@@ -48,6 +48,7 @@
                     <tr>
                         <th>Tanggal les</th>
                         <th>Jam les</th>
+                        <th>Guru</th>
                         <th>Durasi</th>
                         <th>Status</th>
                         <th>Aksi</th>
@@ -58,6 +59,7 @@
                         <tr>
                             <td>{{ \Carbon\Carbon::parse($lesson->lesson_date)->locale('id')->translatedFormat('l, d F Y') }}</td>
                             <td>{{ substr($lesson->lesson_time, 0, 5) }}</td>
+                            <td>{{ $lesson->teacher?->name ?? $learningClass->teacher->name }}</td>
                             <td>{{ $lesson->duration_minutes }} menit</td>
                             <td>
                                 <span class="lesson-status-badge" style="--lesson-status-color: {{ $lesson->lessonStatus->color }}">
@@ -108,7 +110,7 @@
                                     @endif
                                 </div>
                                 @if ($lesson->lessonStatus->system_key === 'belum_terlaksana' && auth()->user()->hasPermission('class_schedules.cancel'))
-                                    <dialog class="lesson-cancel-dialog" id="cancel-lesson-{{ $lesson->id }}" aria-labelledby="cancel-lesson-title-{{ $lesson->id }}" @if ($errors->has('cancellation_reason') && (string) old('cancel_lesson_id') === (string) $lesson->id) data-open-on-load @endif>
+                                    <dialog class="lesson-cancel-dialog" id="cancel-lesson-{{ $lesson->id }}" aria-labelledby="cancel-lesson-title-{{ $lesson->id }}" @if ($errors->has('reason') && (string) old('cancel_lesson_id') === (string) $lesson->id) data-open-on-load @endif>
                                         <form method="POST" action="{{ route('class-schedules.lessons.cancel', ['learningClass' => $learningClass, 'lesson' => $lesson]) }}">
                                             @csrf
                                             <input type="hidden" name="cancel_lesson_id" value="{{ $lesson->id }}">
@@ -120,9 +122,9 @@
                                                 <button class="lesson-dialog-close" type="button" data-close-cancel-dialog aria-label="Tutup dialog">&times;</button>
                                             </div>
                                             <label for="cancellation-reason-{{ $lesson->id }}">Alasan pembatalan</label>
-                                            <textarea id="cancellation-reason-{{ $lesson->id }}" name="cancellation_reason" rows="4" maxlength="5000" required placeholder="Tuliskan alasan pembatalan">{{ (string) old('cancel_lesson_id') === (string) $lesson->id ? old('cancellation_reason') : '' }}</textarea>
+                                            <textarea id="cancellation-reason-{{ $lesson->id }}" name="reason" rows="4" maxlength="5000" required placeholder="Tuliskan alasan pembatalan">{{ (string) old('cancel_lesson_id') === (string) $lesson->id ? old('reason') : '' }}</textarea>
                                             @if ((string) old('cancel_lesson_id') === (string) $lesson->id)
-                                                @error('cancellation_reason')<p class="master-data-error">{{ $message }}</p>@enderror
+                                                @error('reason')<p class="master-data-error">{{ $message }}</p>@enderror
                                             @endif
                                             <div class="lesson-cancel-dialog-actions">
                                                 <button class="secondary-action" type="button" data-close-cancel-dialog>Kembali</button>

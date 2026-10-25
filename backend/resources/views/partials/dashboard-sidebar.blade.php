@@ -4,7 +4,7 @@
     @else
     <div class="dashboard-brand" aria-label="Effata Fun Learning">
     @endif
-        <span class="brand-mark">E</span>
+        <img class="dashboard-logo" src="{{ asset('images/effata-logo.jpg') }}" alt="" />
         <span class="brand-name">Effata <span>Fun Learning</span></span>
     @if (auth()->user()->hasPermission('dashboard.view'))
     </a>

@@ -38,6 +38,7 @@
             <div><dt>Email orang tua</dt><dd><a href="mailto:{{ $user->email }}">{{ $user->email }}</a></dd></div>
             <div><dt>Nama kontak darurat</dt><dd>{{ $user->emergency_contact_name }}</dd></div>
             <div><dt>No. telepon kontak darurat</dt><dd><a href="tel:{{ $user->emergency_contact_phone }}">{{ $user->emergency_contact_phone }}</a></dd></div>
+            <div><dt>Status user</dt><dd>{{ $user->status === 'active' ? 'Active' : 'Inactive' }}</dd></div>
             <div><dt>Alamat</dt><dd>{{ $user->address }}</dd></div>
             <div><dt>Karakteristik anak</dt><dd>{{ $user->child_characteristics }}</dd></div>
             <div><dt>Hobi anak</dt><dd>{{ $user->child_hobbies }}</dd></div>

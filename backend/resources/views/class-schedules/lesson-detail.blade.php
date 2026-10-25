@@ -10,7 +10,7 @@
         <div>
             <p class="dashboard-eyebrow">PENGELOLAAN PEMBELAJARAN / JADWAL KELAS</p>
             <h1>Detail Jadwal Les</h1>
-            <p>{{ $learningClass->name }} · {{ $learningClass->student->name }} · Guru {{ $learningClass->teacher->name }}</p>
+            <p>{{ $learningClass->name }} · {{ $learningClass->student->name }} · Guru {{ $lesson->teacher?->name ?? $learningClass->teacher->name }}</p>
         </div>
         <a class="secondary-action" href="{{ route('class-schedules.show', ['learningClass' => $learningClass, 'month' => $lessonDate->month, 'year' => $lessonDate->year]) }}">Kembali ke daftar</a>
     </section>
@@ -36,7 +36,7 @@
             </div>
             <div>
                 <dt>Nama guru</dt>
-                <dd>{{ $learningClass->teacher->name }}</dd>
+                <dd>{{ $lesson->teacher?->name ?? $learningClass->teacher->name }}</dd>
             </div>
             <div>
                 <dt>Absen guru</dt>
@@ -52,19 +52,27 @@
                     @endif
                 </dd>
             </div>
-            <div class="lesson-detail-full-width">
-                <dt>Deskripsi pelajaran</dt>
-                <dd>{{ $lesson->lesson_description ?: '-' }}</dd>
-            </div>
+            @if ($lesson->lessonStatus->system_key === 'dibatalkan')
+                <div class="lesson-detail-full-width">
+                    <dt>Alasan pembatalan</dt>
+                    <dd>{{ $lesson->reason ?: '-' }}</dd>
+                </div>
+            @elseif ($lesson->lesson_description)
+                <div class="lesson-detail-full-width">
+                    <dt>Deskripsi pelajaran</dt>
+                    <dd>{{ $lesson->lesson_description }}</dd>
+                </div>
+            @endif
             <div class="lesson-detail-full-width">
                 <dt>Notes</dt>
                 <dd>{{ $lesson->notes ?: '-' }}</dd>
             </div>
         </dl>
 
-        <details class="lesson-history-section">
-            <summary>Riwayat Pindah Jadwal</summary>
-            @forelse ($lesson->rescheduleHistories as $history)
+        @if ($lesson->rescheduleHistories->isNotEmpty())
+            <details class="lesson-history-section">
+                <summary>Riwayat Pindah Jadwal</summary>
+                @foreach ($lesson->rescheduleHistories as $history)
                 <div class="lesson-history-item">
                     <div>
                         <strong>{{ \Illuminate\Support\Carbon::parse($history->old_lesson_date)->locale('id')->translatedFormat('d F Y') }} · {{ substr($history->old_lesson_time, 0, 5) }}</strong>
@@ -75,11 +83,15 @@
                         <strong>{{ \Illuminate\Support\Carbon::parse($history->new_lesson_date)->locale('id')->translatedFormat('d F Y') }} · {{ substr($history->new_lesson_time, 0, 5) }}</strong>
                         <span>Jadwal baru</span>
                     </div>
-                    <small>{{ $history->updatedBy?->name ?? 'Pengguna tidak tercatat' }} · {{ $history->created_at->locale('id')->translatedFormat('d F Y H:i') }}</small>
+                    <div>
+                        <strong>{{ $history->oldTeacher?->name ?? '-' }} → {{ $history->newTeacher?->name ?? '-' }}</strong>
+                        <span>Guru</span>
+                    </div>
+                    <p class="lesson-history-reason">{{ $history->reason ?: '-' }}</p>
+                    <small class="lesson-history-meta">{{ $history->updatedBy?->name ?? 'Pengguna tidak tercatat' }} · {{ $history->created_at->locale('id')->translatedFormat('d F Y H:i') }}</small>
                 </div>
-            @empty
-                <p class="lesson-history-empty">-</p>
-            @endforelse
-        </details>
+                @endforeach
+            </details>
+        @endif
     </section>
 @endsection

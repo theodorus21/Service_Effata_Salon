@@ -32,7 +32,7 @@
             </div>
         </div>
         <div class="table-scroll">
-            <table>
+            <table class="master-data-table master-data-table-{{ $role }}">
                 <thead>
                     <tr>
                         <th>{{ $role === 'murid' ? 'Nama anak' : 'Nama' }}</th>
@@ -45,6 +45,7 @@
                             <th>No. telepon orang tua</th>
                         @endif
                         <th>{{ $role === 'murid' ? 'Email orang tua' : 'Email' }}</th>
+                        <th>Status</th>
                         <th></th>
                     </tr>
                 </thead>
@@ -67,25 +68,32 @@
                                 <td>{{ $user->parent_phone }}</td>
                             @endif
                             <td>{{ $user->email }}</td>
-                            <td class="master-data-actions">
-                                @if (in_array($role, ['guru', 'admin', 'murid'], true) && auth()->user()->hasPermission("master_data.{$role}.detail"))
-                                    <a class="table-action" href="{{ route('master-data.show', ['role' => $role, 'user' => $user->id]) }}">Detail</a>
-                                @endif
-                                @if (auth()->user()->hasPermission("master_data.{$role}.update"))
-                                    <a class="table-action" href="{{ route('master-data.edit', ['role' => $role, 'user' => $user->id]) }}">Ubah</a>
-                                @endif
-                                @if (auth()->user()->hasPermission("master_data.{$role}.delete"))
-                                <form method="POST" action="{{ route('master-data.destroy', ['role' => $role, 'user' => $user->id]) }}" onsubmit="return confirm('Hapus data ini?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="table-action table-action-danger" type="submit">Hapus</button>
-                                </form>
-                                @endif
+                            <td>
+                                <span class="user-status-badge user-status-{{ $user->status }}">
+                                    {{ $user->status === 'active' ? 'Active' : 'Inactive' }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="master-data-actions">
+                                    @if (in_array($role, ['guru', 'admin', 'murid'], true) && auth()->user()->hasPermission("master_data.{$role}.detail"))
+                                        <a class="table-action" href="{{ route('master-data.show', ['role' => $role, 'user' => $user->id]) }}">Detail</a>
+                                    @endif
+                                    @if (auth()->user()->hasPermission("master_data.{$role}.update"))
+                                        <a class="table-action" href="{{ route('master-data.edit', ['role' => $role, 'user' => $user->id]) }}">Ubah</a>
+                                    @endif
+                                    @if (auth()->user()->hasPermission("master_data.{$role}.delete"))
+                                        <form method="POST" action="{{ route('master-data.destroy', ['role' => $role, 'user' => $user->id]) }}" onsubmit="return confirm('Hapus data ini?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button class="table-action table-action-danger" type="submit">Hapus</button>
+                                        </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td class="master-data-empty" colspan="{{ in_array($role, ['guru', 'admin'], true) ? 5 : ($role === 'murid' ? 6 : 4) }}">Belum ada data {{ strtolower($roleLabel) }}.</td>
+                            <td class="master-data-empty" colspan="{{ in_array($role, ['guru', 'admin'], true) ? 6 : ($role === 'murid' ? 7 : 5) }}">Belum ada data {{ strtolower($roleLabel) }}.</td>
                         </tr>
                     @endforelse
                 </tbody>

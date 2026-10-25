@@ -30,6 +30,13 @@ return [
             'learning_classes.generate' => 'Tombol generate jadwal',
         ],
     ],
+    'class_reports' => [
+        'label' => 'Report Kelas',
+        'permissions' => [
+            'class_reports.view' => 'Lihat report kelas',
+            'class_reports.create' => 'Tombol tambah report kelas',
+        ],
+    ],
     'class_schedules' => [
         'label' => 'Jadwal Kelas',
         'permissions' => [

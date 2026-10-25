@@ -171,6 +171,17 @@
                 @endif
             @endif
 
+            @if ($isEditing)
+                <div class="master-data-field">
+                    <label for="status">Status user</label>
+                    <select id="status" name="status" required>
+                        <option value="active" @selected(old('status', $user->status) === 'active')>Active</option>
+                        <option value="inactive" @selected(old('status', $user->status) === 'inactive')>Inactive</option>
+                    </select>
+                    @error('status')<p class="master-data-error">{{ $message }}</p>@enderror
+                </div>
+            @endif
+
             <div class="master-data-form-actions">
                 @if (auth()->user()->hasPermission("master_data.{$role}.view"))
                     <a class="secondary-action" href="{{ route('master-data.index', ['role' => $role]) }}">Batal</a>

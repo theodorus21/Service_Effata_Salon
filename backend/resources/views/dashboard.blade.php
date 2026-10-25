@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="icon" type="image/jpeg" href="{{ asset('images/effata-logo.jpg') }}" />
         <meta
             name="description"
             content="Dashboard Effata Fun Learning untuk memantau reservasi dan operasional harian."
@@ -13,7 +14,7 @@
     <body class="dashboard-page">
         <aside class="sidebar" id="sidebar">
             <a class="dashboard-brand" href="{{ route('dashboard') }}" aria-label="Effata Fun Learning, dashboard">
-                <span class="brand-mark">E</span>
+                <img class="dashboard-logo" src="{{ asset('images/effata-logo.jpg') }}" alt="" />
                 <span class="brand-name">Effata <span>Fun Learning</span></span>
             </a>
 

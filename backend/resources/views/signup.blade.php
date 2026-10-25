@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="icon" type="image/jpeg" href="{{ asset('images/effata-logo.jpg') }}" />
         <meta
             name="description"
             content="Buat akun Effata Fun Learning untuk mengelola reservasi dan layanan."
@@ -15,7 +16,7 @@
         <main class="login-layout">
             <section class="brand-panel" aria-label="Tentang Effata Fun Learning">
                 <a class="brand" href="{{ route('signin') }}" aria-label="Effata Fun Learning, halaman login">
-                    <span class="brand-mark" aria-hidden="true">E</span>
+                    <img class="brand-logo" src="{{ asset('images/effata-logo.jpg') }}" alt="" />
                     <span class="brand-name">Effata <span>Fun Learning</span></span>
                 </a>
 
@@ -44,7 +45,7 @@
             <section class="form-panel signup-panel" aria-labelledby="signup-title">
                 <div class="form-wrap signup-wrap">
                     <a class="mobile-brand signup-mobile-brand" href="{{ route('signin') }}" aria-label="Effata Fun Learning, halaman login">
-                        <span class="brand-mark" aria-hidden="true">E</span>
+                        <img class="brand-logo" src="{{ asset('images/effata-logo.jpg') }}" alt="" />
                         <span class="brand-name">Effata <span>Fun Learning</span></span>
                     </a>
 

@@ -6,8 +6,8 @@ use App\Models\LearningClass;
 use App\Models\LearningClassLesson;
 use App\Models\LearningClassLessonRescheduleHistory;
 use App\Models\LearningClassLessonStatus;
-use App\Models\Role;
 use App\Models\LookupValue;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -17,8 +17,8 @@ use Tests\TestCase;
 
 class LearningClassLessonActionsTest extends TestCase
 {
-    use RefreshDatabase;
     use AuthenticatesAsMasterAdmin;
+    use RefreshDatabase;
 
     protected function setUp(): void
     {
@@ -62,9 +62,8 @@ class LearningClassLessonActionsTest extends TestCase
             ->assertDontSee('Belum ada foto pelajaran.')
             ->assertDontSee('Belum ada deskripsi pelajaran.')
             ->assertDontSee('Belum ada notes.')
-            ->assertSee('Riwayat Pindah Jadwal')
-            ->assertSee('<details class="lesson-history-section">', false)
-            ->assertSee('<p class="lesson-history-empty">-</p>', false);
+            ->assertDontSee('Riwayat Pindah Jadwal')
+            ->assertDontSee('<details class="lesson-history-section">', false);
 
         $this->post($this->actionRoute('attendance', $learningClass, $lesson))
             ->assertRedirect(route('class-schedules.show', [
@@ -178,7 +177,7 @@ class LearningClassLessonActionsTest extends TestCase
 
         $this->get($this->actionRoute('reschedule.edit', $learningClass, $lesson))->assertUnprocessable();
         $this->post($this->actionRoute('cancel', $learningClass, $lesson), [
-            'cancellation_reason' => 'Alasan pembatalan.',
+            'reason' => 'Alasan pembatalan.',
         ])->assertUnprocessable();
     }
 
@@ -198,12 +197,16 @@ class LearningClassLessonActionsTest extends TestCase
             ->assertSee('Pindah Jadwal Les')
             ->assertSee('2026-10-05')
             ->assertSee('Durasi les (menit)')
+            ->assertSee('name="teacher_id"', false)
+            ->assertSee('name="reason"', false)
             ->assertSee('value="60"', false);
 
         $this->put($this->actionRoute('reschedule.update', $learningClass, $lesson), [
             'lesson_date' => '2026-10-12',
             'lesson_time' => '11:15',
             'duration_minutes' => 75,
+            'teacher_id' => $learningClass->teacher_id,
+            'reason' => 'Permintaan penyesuaian jadwal.',
         ])->assertRedirect(route('class-schedules.show', [
             'learningClass' => $learningClass,
             'month' => 10,
@@ -220,6 +223,9 @@ class LearningClassLessonActionsTest extends TestCase
             'old_lesson_time' => '09:30',
             'new_lesson_date' => '2026-10-12',
             'new_lesson_time' => '11:15',
+            'reason' => 'Permintaan penyesuaian jadwal.',
+            'old_teacher_id' => $learningClass->teacher_id,
+            'new_teacher_id' => $learningClass->teacher_id,
             'updated_by' => $actor->id,
         ]);
         $this->assertInstanceOf(LearningClassLessonRescheduleHistory::class, $lesson->rescheduleHistories()->first());
@@ -230,7 +236,9 @@ class LearningClassLessonActionsTest extends TestCase
             ->assertSee('Jadwal sebelumnya')
             ->assertSee('Jadwal baru')
             ->assertSee('09:30')
-            ->assertSee('11:15');
+            ->assertSee('11:15')
+            ->assertSee('Permintaan penyesuaian jadwal.')
+            ->assertSee($learningClass->teacher->name);
     }
 
     public function test_reschedule_rejects_duplicate_session_datetime_for_same_class(): void
@@ -246,6 +254,8 @@ class LearningClassLessonActionsTest extends TestCase
                 'lesson_date' => '2026-10-12',
                 'lesson_time' => '11:15',
                 'duration_minutes' => 60,
+                'teacher_id' => $learningClass->teacher_id,
+                'reason' => 'Jadwal bentrok.',
             ])
             ->assertRedirect($this->actionRoute('reschedule.edit', $learningClass, $lesson))
             ->assertSessionHasErrors('lesson_time');
@@ -254,6 +264,78 @@ class LearningClassLessonActionsTest extends TestCase
             'learning_class_lesson_id' => $lesson->id,
         ]);
         $this->assertSame('2026-10-12', $otherLesson->refresh()->lesson_date);
+    }
+
+    public function test_reschedule_can_change_teacher_for_one_lesson_and_records_teacher_history(): void
+    {
+        [$learningClass, $lesson] = $this->createLesson();
+        $oldTeacher = $learningClass->teacher;
+        $newTeacher = User::factory()->create(['role' => 'guru', 'name' => 'Guru Pengganti']);
+
+        $this->put($this->actionRoute('reschedule.update', $learningClass, $lesson), [
+            'lesson_date' => '2026-10-12',
+            'lesson_time' => '11:15',
+            'duration_minutes' => 75,
+            'teacher_id' => $newTeacher->id,
+            'reason' => 'Guru lama berhalangan.',
+        ])->assertRedirect(route('class-schedules.show', [
+            'learningClass' => $learningClass,
+            'month' => 10,
+            'year' => 2026,
+        ]));
+
+        $this->assertSame($newTeacher->id, $lesson->refresh()->teacher_id);
+        $this->assertSame($oldTeacher->id, $learningClass->refresh()->teacher_id);
+        $this->assertDatabaseHas('learning_class_lesson_reschedule_histories', [
+            'learning_class_lesson_id' => $lesson->id,
+            'reason' => 'Guru lama berhalangan.',
+            'old_teacher_id' => $oldTeacher->id,
+            'new_teacher_id' => $newTeacher->id,
+        ]);
+
+        $this->get($this->actionRoute('show', $learningClass, $lesson))
+            ->assertOk()
+            ->assertSee('Guru Pengganti')
+            ->assertSee($oldTeacher->name.' → Guru Pengganti')
+            ->assertSee('Guru lama berhalangan.');
+    }
+
+    public function test_reschedule_checks_conflicts_for_the_selected_replacement_teacher(): void
+    {
+        [$learningClass, $lesson] = $this->createLesson();
+        $replacementTeacher = User::factory()->create(['role' => 'guru']);
+        $otherClass = $this->createClass(['teacher_id' => $replacementTeacher->id]);
+        $otherClass->lessons()->create([
+            'lesson_date' => '2026-10-12',
+            'lesson_time' => '10:00',
+            'duration_minutes' => 60,
+        ]);
+
+        $this->from($this->actionRoute('reschedule.edit', $learningClass, $lesson))
+            ->put($this->actionRoute('reschedule.update', $learningClass, $lesson), [
+                'lesson_date' => '2026-10-12',
+                'lesson_time' => '09:30',
+                'duration_minutes' => 60,
+                'teacher_id' => $replacementTeacher->id,
+                'reason' => 'Mengganti guru.',
+            ])
+            ->assertRedirect($this->actionRoute('reschedule.edit', $learningClass, $lesson))
+            ->assertSessionHasErrors('lesson_time');
+
+        $this->assertDatabaseMissing('learning_class_lesson_reschedule_histories', [
+            'learning_class_lesson_id' => $lesson->id,
+        ]);
+
+        $this->from($this->actionRoute('reschedule.edit', $learningClass, $lesson))
+            ->put($this->actionRoute('reschedule.update', $learningClass, $lesson), [
+                'lesson_date' => '2026-10-13',
+                'lesson_time' => '09:30',
+                'duration_minutes' => 60,
+                'teacher_id' => $learningClass->student_id,
+                'reason' => 'Guru tidak valid.',
+            ])
+            ->assertRedirect($this->actionRoute('reschedule.edit', $learningClass, $lesson))
+            ->assertSessionHasErrors('teacher_id');
     }
 
     public function test_reschedule_rejects_time_range_overlap_with_shared_teacher_or_student(): void
@@ -273,6 +355,8 @@ class LearningClassLessonActionsTest extends TestCase
                 'lesson_date' => '2026-10-12',
                 'lesson_time' => '09:30',
                 'duration_minutes' => 60,
+                'teacher_id' => $learningClass->teacher_id,
+                'reason' => 'Jadwal bentrok.',
             ])
             ->assertRedirect($this->actionRoute('reschedule.edit', $learningClass, $lesson))
             ->assertSessionHasErrors('lesson_time');
@@ -300,6 +384,8 @@ class LearningClassLessonActionsTest extends TestCase
                 'lesson_date' => '2026-10-12',
                 'lesson_time' => '09:00',
                 'duration_minutes' => 75,
+                'teacher_id' => $learningClass->teacher_id,
+                'reason' => 'Jadwal bentrok.',
             ])
             ->assertRedirect($this->actionRoute('reschedule.edit', $learningClass, $lesson))
             ->assertSessionHasErrors('lesson_time');
@@ -323,6 +409,8 @@ class LearningClassLessonActionsTest extends TestCase
             'lesson_date' => '2026-10-12',
             'lesson_time' => '09:30',
             'duration_minutes' => 60,
+            'teacher_id' => $learningClass->teacher_id,
+            'reason' => 'Jadwal berdekatan.',
         ])->assertRedirect(route('class-schedules.show', [
             'learningClass' => $learningClass,
             'month' => 10,
@@ -336,18 +424,20 @@ class LearningClassLessonActionsTest extends TestCase
                 'lesson_date' => '2026-10-13',
                 'lesson_time' => '09:30',
                 'duration_minutes' => 0,
+                'teacher_id' => $learningClass->teacher_id,
+                'reason' => 'Durasi tidak valid.',
             ])
             ->assertRedirect($this->actionRoute('reschedule.edit', $learningClass, $lesson))
             ->assertSessionHasErrors('duration_minutes');
     }
 
-    public function test_cancellation_saves_reason_in_description_and_changes_status(): void
+    public function test_cancellation_saves_reason_separately_and_shows_it_in_detail(): void
     {
         [$learningClass, $lesson] = $this->createLesson();
         $cancelledStatus = LearningClassLessonStatus::query()->where('system_key', 'dibatalkan')->firstOrFail();
 
         $this->post($this->actionRoute('cancel', $learningClass, $lesson), [
-            'cancellation_reason' => 'Guru berhalangan hadir.',
+            'reason' => 'Guru berhalangan hadir.',
         ])
             ->assertRedirect(route('class-schedules.show', [
                 'learningClass' => $learningClass,
@@ -357,8 +447,13 @@ class LearningClassLessonActionsTest extends TestCase
             ->assertSessionHas('status');
 
         $lesson->refresh();
-        $this->assertSame('Guru berhalangan hadir.', $lesson->lesson_description);
+        $this->assertSame('Guru berhalangan hadir.', $lesson->reason);
+        $this->assertNull($lesson->lesson_description);
         $this->assertSame($cancelledStatus->code, $lesson->status);
+        $this->get($this->actionRoute('show', $learningClass, $lesson))
+            ->assertOk()
+            ->assertSee('Alasan pembatalan')
+            ->assertSee('Guru berhalangan hadir.');
     }
 
     public function test_actions_reject_a_lesson_that_does_not_belong_to_the_class(): void

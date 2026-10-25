@@ -34,6 +34,7 @@
             <div><dt>Nama panggilan</dt><dd>{{ $user->nickname }}</dd></div>
             <div><dt>Email</dt><dd><a href="mailto:{{ $user->email }}">{{ $user->email }}</a></dd></div>
             <div><dt>No. telepon</dt><dd><a href="tel:{{ $user->phone }}">{{ $user->phone }}</a></dd></div>
+            <div><dt>Status user</dt><dd>{{ $user->status === 'active' ? 'Active' : 'Inactive' }}</dd></div>
             <div><dt>Alamat</dt><dd>{{ $user->address }}</dd></div>
             <div><dt>Bank rekening</dt><dd>{{ $user->bank_name }}</dd></div>
             <div><dt>Nomor rekening</dt><dd>{{ $user->bank_account_number }}</dd></div>

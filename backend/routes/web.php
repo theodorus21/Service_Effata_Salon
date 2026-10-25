@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\SessionController;
 use App\Http\Controllers\LearningClassController;
 use App\Http\Controllers\LearningClassLessonActionController;
 use App\Http\Controllers\LearningClassLessonController;
+use App\Http\Controllers\LearningClassReportController;
 use App\Http\Controllers\LearningClassScheduleController;
 use App\Http\Controllers\MasterDataController;
 use App\Http\Controllers\RoleAccessController;
@@ -61,6 +62,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/class-schedules/{learningClass}', [LearningClassScheduleController::class, 'show'])
         ->middleware('permission:class_schedules.view')
         ->name('class-schedules.show');
+    Route::get('/learning-classes/{learningClass}/generate-lessons', [LearningClassLessonController::class, 'create'])
+        ->middleware('permission:learning_classes.generate')
+        ->name('learning-classes.lessons.generate.form');
     Route::post('/learning-classes/{learningClass}/generate-lessons', [LearningClassLessonController::class, 'generate'])
         ->middleware('permission:learning_classes.generate')
         ->name('learning-classes.lessons.generate');
@@ -92,6 +96,18 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/learning-classes', [LearningClassController::class, 'index'])
         ->middleware('permission:learning_classes.view')
         ->name('learning-classes.index');
+    Route::get('/learning-classes/{learningClass}/reports', [LearningClassReportController::class, 'index'])
+        ->middleware('permission:class_reports.view')
+        ->name('learning-classes.reports.index');
+    Route::get('/learning-classes/{learningClass}/reports/create', [LearningClassReportController::class, 'create'])
+        ->middleware('permission:class_reports.create')
+        ->name('learning-classes.reports.create');
+    Route::get('/learning-classes/{learningClass}/reports/{report}/download', [LearningClassReportController::class, 'download'])
+        ->middleware('permission:class_reports.view')
+        ->name('learning-classes.reports.download');
+    Route::post('/learning-classes/{learningClass}/reports', [LearningClassReportController::class, 'store'])
+        ->middleware('permission:class_reports.create')
+        ->name('learning-classes.reports.store');
     Route::get('/learning-classes/create', [LearningClassController::class, 'create'])
         ->middleware('permission:learning_classes.create')
         ->name('learning-classes.create');

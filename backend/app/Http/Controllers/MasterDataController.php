@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LearningClass;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -24,13 +25,15 @@ class MasterDataController extends Controller
 
     public function index(string $role): View
     {
+        $users = User::query()->where('role', $role);
+        if ($role === 'murid' && request()->user()->role === 'guru') {
+            $this->limitStudentsToTeacherClasses($users, request()->user());
+        }
+
         return view('master-data.index', [
             'role' => $role,
             'roleLabel' => self::ROLES[$role],
-            'users' => User::query()
-                ->where('role', $role)
-                ->orderBy('name')
-                ->paginate(10),
+            'users' => $users->orderBy('name')->paginate(10),
         ]);
     }
 
@@ -96,6 +99,8 @@ class MasterDataController extends Controller
         User::create([
             ...$data,
             'role' => $role,
+            'status' => 'active',
+            'created_by' => $request->user()?->getAuthIdentifier(),
             'created_date' => now(),
         ]);
 
@@ -127,6 +132,7 @@ class MasterDataController extends Controller
                     : []),
             ],
             'email' => ['required', 'email', 'max:255', 'unique:users,email,'.$record->id],
+            'status' => ['required', Rule::in(['active', 'inactive'])],
         ]);
 
         if (in_array($role, ['guru', 'admin'], true)) {
@@ -173,6 +179,7 @@ class MasterDataController extends Controller
 
         $record->update([
             ...$data,
+            'updated_by' => $request->user()?->getAuthIdentifier(),
             'updated_date' => now(),
         ]);
 
@@ -215,9 +222,30 @@ class MasterDataController extends Controller
 
     private function findUser(string $role, int $user): User
     {
-        return User::query()
-            ->where('role', $role)
-            ->findOrFail($user);
+        $query = User::query()->where('role', $role);
+        if ($role === 'murid' && request()->user()?->role === 'guru') {
+            $this->limitStudentsToTeacherClasses($query, request()->user());
+        }
+
+        return $query->findOrFail($user);
+    }
+
+    private function limitStudentsToTeacherClasses(Builder $query, User $teacher): void
+    {
+        $query->where(function ($query) use ($teacher): void {
+            $query->whereExists(function ($classQuery) use ($teacher): void {
+                $classQuery->selectRaw('1')
+                    ->from('learning_classes')
+                    ->whereColumn('learning_classes.student_id', 'users.id')
+                    ->where('learning_classes.teacher_id', $teacher->id);
+            })->orWhereExists(function ($lessonQuery) use ($teacher): void {
+                $lessonQuery->selectRaw('1')
+                    ->from('learning_class_lessons')
+                    ->join('learning_classes', 'learning_classes.id', '=', 'learning_class_lessons.learning_class_id')
+                    ->whereColumn('learning_classes.student_id', 'users.id')
+                    ->where('learning_class_lessons.teacher_id', $teacher->id);
+            });
+        });
     }
 
     /**

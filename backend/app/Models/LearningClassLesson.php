@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
     'learning_class_id',
+    'teacher_id',
     'lesson_date',
     'lesson_time',
     'duration_minutes',
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'teacher_attendance_at',
     'lesson_photo',
     'lesson_description',
+    'reason',
     'notes',
 ])]
 class LearningClassLesson extends Model
@@ -28,6 +30,11 @@ class LearningClassLesson extends Model
     public function lessonStatus(): BelongsTo
     {
         return $this->belongsTo(LearningClassLessonStatus::class, 'status', 'code');
+    }
+
+    public function teacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'teacher_id');
     }
 
     public function rescheduleHistories(): HasMany

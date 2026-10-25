@@ -8,7 +8,7 @@
         <div>
             <p class="dashboard-eyebrow">PENGELOLAAN PEMBELAJARAN / JADWAL KELAS</p>
             <h1>Pindah Jadwal Les</h1>
-            <p>{{ $learningClass->name }} · {{ $learningClass->student->name }} · Guru {{ $learningClass->teacher->name }}</p>
+            <p>{{ $learningClass->name }} · {{ $learningClass->student->name }} · Guru {{ $lesson->teacher?->name ?? $learningClass->teacher->name }}</p>
         </div>
         @if (auth()->user()->hasPermission('class_schedules.view'))
             <a class="secondary-action" href="{{ route('class-schedules.show', ['learningClass' => $learningClass, 'month' => \Illuminate\Support\Carbon::parse($lesson->lesson_date)->month, 'year' => \Illuminate\Support\Carbon::parse($lesson->lesson_date)->year]) }}">Kembali</a>
@@ -37,6 +37,20 @@
                 <label for="duration_minutes">Durasi les (menit)</label>
                 <input id="duration_minutes" name="duration_minutes" type="number" value="{{ old('duration_minutes', $lesson->duration_minutes) }}" required min="1" max="1440" step="1">
                 @error('duration_minutes')<p class="master-data-error">{{ $message }}</p>@enderror
+            </div>
+            <div class="master-data-field">
+                <label for="teacher_id">Guru</label>
+                <select id="teacher_id" name="teacher_id" required>
+                    @foreach ($teachers as $teacher)
+                        <option value="{{ $teacher->id }}" @selected((string) old('teacher_id', $lesson->teacher_id ?? $learningClass->teacher_id) === (string) $teacher->id)>{{ $teacher->name }}</option>
+                    @endforeach
+                </select>
+                @error('teacher_id')<p class="master-data-error">{{ $message }}</p>@enderror
+            </div>
+            <div class="master-data-field">
+                <label for="reason">Alasan pindah jadwal</label>
+                <textarea id="reason" name="reason" rows="4" maxlength="5000" required>{{ old('reason') }}</textarea>
+                @error('reason')<p class="master-data-error">{{ $message }}</p>@enderror
             </div>
             <div class="master-data-form-actions">
                 @if (auth()->user()->hasPermission('class_schedules.view'))

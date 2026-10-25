@@ -15,12 +15,13 @@ class UserController extends Controller
      */
     public function index()
     {
-        $users = User::all()->map(function($user){
+        $users = User::all()->map(function ($user) {
             return [
                 'id' => $user->id,
                 'name' => $user->name,
                 'birthDate' => optional($user->birth_date)?->toDateString(),
                 'role' => $user->role,
+                'status' => $user->status,
                 'email' => $user->email,
                 'createdBy' => $user->created_by,
                 'createdDate' => optional($user->created_date)?->toDateTimeString(),
@@ -41,9 +42,9 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'birthDate' => 'nullable|date',
             'role' => 'required|string|in:user',
+            'status' => 'sometimes|in:active,inactive',
             'email' => 'required|string|email|max:255|unique:users,email',
             'password' => 'required|string|min:6',
-            'createdBy' => 'nullable|integer',
             'createdDate' => 'nullable|date',
         ]);
 
@@ -51,9 +52,10 @@ class UserController extends Controller
             'name' => $data['name'],
             'birth_date' => $data['birthDate'] ?? null,
             'role' => $data['role'],
+            'status' => $data['status'] ?? 'active',
             'email' => $data['email'] ?? null,
             'password' => $data['password'] ?? null,
-            'created_by' => $data['createdBy'] ?? null,
+            'created_by' => $request->user()?->getAuthIdentifier(),
             'created_date' => $data['createdDate'] ?? now(),
         ]);
 
@@ -62,6 +64,7 @@ class UserController extends Controller
             'name' => $user->name,
             'birthDate' => optional($user->birth_date)?->toDateString(),
             'role' => $user->role,
+            'status' => $user->status,
             'email' => $user->email,
             'createdBy' => $user->created_by,
             'createdDate' => optional($user->created_date)?->toDateTimeString(),
@@ -80,6 +83,7 @@ class UserController extends Controller
             'name' => $user->name,
             'birthDate' => optional($user->birth_date)?->toDateString(),
             'role' => $user->role,
+            'status' => $user->status,
             'email' => $user->email,
             'createdBy' => $user->created_by,
             'createdDate' => optional($user->created_date)?->toDateTimeString(),
@@ -103,9 +107,9 @@ class UserController extends Controller
                 Rule::exists('roles', 'code'),
                 Rule::notIn([User::ROLE_MASTER_ADMIN]),
             ],
+            'status' => ['sometimes', 'required', Rule::in(['active', 'inactive'])],
             'email' => 'nullable|email|max:255',
             'password' => 'nullable|string|min:6',
-            'updatedBy' => 'nullable|integer',
             'updatedDate' => 'nullable|date',
         ]);
 
@@ -113,9 +117,10 @@ class UserController extends Controller
             'name' => $data['name'] ?? $user->name,
             'birth_date' => array_key_exists('birthDate', $data) ? $data['birthDate'] : $user->birth_date,
             'role' => $data['role'] ?? $user->role,
+            'status' => $data['status'] ?? $user->status,
             'email' => $data['email'] ?? $user->email,
             'password' => $data['password'] ?? $user->password,
-            'updated_by' => $data['updatedBy'] ?? $user->updated_by,
+            'updated_by' => $request->user()?->getAuthIdentifier(),
             'updated_date' => $data['updatedDate'] ?? now(),
         ]);
 
@@ -126,6 +131,7 @@ class UserController extends Controller
             'name' => $user->name,
             'birthDate' => optional($user->birth_date)?->toDateString(),
             'role' => $user->role,
+            'status' => $user->status,
             'email' => $user->email,
             'createdBy' => $user->created_by,
             'createdDate' => optional($user->created_date)?->toDateTimeString(),
