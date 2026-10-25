@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\LearningClass;
+use App\Models\LearningClassLesson;
 use App\Models\LearningClassSchedule;
-use App\Models\LookupValue;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -27,7 +29,7 @@ class LearningClassController extends Controller
     public function index(Request $request): View
     {
         $classes = LearningClass::query()
-            ->with(['student', 'teacher', 'program', 'category', 'schedules'])
+            ->with(['student', 'teacher', 'program', 'category', 'schedules', 'product.frequency'])
             ->when($request->user()->role === 'murid', fn ($query) => $query->where('student_id', $request->user()->id))
             ->when($request->user()->role === 'guru', fn ($query) => $query->where('teacher_id', $request->user()->id));
 
@@ -46,15 +48,18 @@ class LearningClassController extends Controller
     {
         $data = $this->validatedData($request);
 
-        DB::transaction(function () use ($data): void {
+        $product = $data['product'];
+
+        DB::transaction(function () use ($data, $product): void {
             $learningClass = LearningClass::create([
-                'name' => $data['name'],
+                'name' => $product->name,
+                'product_id' => $product->id,
+                'price' => $product->price,
                 'student_id' => $data['student_id'],
                 'teacher_id' => $data['teacher_id'],
-                'program_id' => $data['program_id'],
-                'category_id' => $data['category_id'],
+                'status' => 'active',
             ]);
-            $learningClass->schedules()->createMany($data['schedules']);
+            $this->saveSessions($learningClass, $data);
         });
 
         return redirect()
@@ -71,7 +76,7 @@ class LearningClassController extends Controller
             abort_unless($learningClass->teacher_id === $user->id, 404);
         }
 
-        $learningClass->load(['student', 'teacher', 'program', 'category', 'schedules']);
+        $learningClass->load(['student', 'teacher', 'program', 'category', 'schedules', 'lessons', 'product.frequency']);
 
         return view('learning-classes.show', [
             'learningClass' => $learningClass,
@@ -87,17 +92,25 @@ class LearningClassController extends Controller
     public function update(Request $request, LearningClass $learningClass): RedirectResponse
     {
         $data = $this->validatedData($request, $learningClass);
+        $product = $data['product'];
 
-        DB::transaction(function () use ($data, $learningClass): void {
+        DB::transaction(function () use ($data, $product, $learningClass): void {
+            $productChanged = $product->id !== (int) $learningClass->product_id;
+
             $learningClass->update([
-                'name' => $data['name'],
+                ...($productChanged ? ['name' => $product->name, 'product_id' => $product->id, 'price' => $product->price] : []),
                 'student_id' => $data['student_id'],
                 'teacher_id' => $data['teacher_id'],
-                'program_id' => $data['program_id'],
-                'category_id' => $data['category_id'],
+                'status' => $data['status'],
             ]);
-            $learningClass->schedules()->delete();
-            $learningClass->schedules()->createMany($data['schedules']);
+
+            if ($data['is_monthly']) {
+                $learningClass->schedules()->delete();
+            } else {
+                $learningClass->lessons()->whereKey($data['lesson_ids_to_delete'])->delete();
+            }
+
+            $this->saveSessions($learningClass, $data);
         });
 
         return redirect()
@@ -116,33 +129,42 @@ class LearningClassController extends Controller
 
     private function form(LearningClass $learningClass): View
     {
-        $learningClass->load('schedules');
+        $learningClass->load(['schedules', 'lessons']);
         $scheduleRows = old('schedules', $learningClass->schedules
             ->map(fn ($schedule): array => [
                 'day' => $schedule->day,
                 'lesson_time' => substr($schedule->lesson_time, 0, 5),
-                'duration_minutes' => $schedule->duration_minutes,
             ])
             ->all());
 
         if ($scheduleRows === []) {
-            $scheduleRows = [['day' => '', 'lesson_time' => '', 'duration_minutes' => '']];
+            $scheduleRows = [['day' => '', 'lesson_time' => '']];
+        }
+
+        $lessonRows = old('lessons', $learningClass->lessons
+            ->map(fn ($lesson): array => [
+                'lesson_date' => Carbon::parse($lesson->lesson_date)->toDateString(),
+                'lesson_time' => substr($lesson->lesson_time, 0, 5),
+            ])
+            ->values()
+            ->all());
+
+        if ($lessonRows === []) {
+            $lessonRows = [['lesson_date' => '', 'lesson_time' => '']];
         }
 
         return view('learning-classes.form', [
             'learningClass' => $learningClass,
             'scheduleRows' => $scheduleRows,
+            'lessonRows' => $lessonRows,
             'students' => User::query()->where('role', 'murid')->orderBy('name')->get(),
             'teachers' => User::query()->where('role', 'guru')->orderBy('name')->get(),
-            'programs' => LookupValue::query()
-                ->where('category', 'program')
-                ->orderBy('sort_order')
-                ->orderBy('value')
-                ->get(),
-            'categories' => LookupValue::query()
-                ->where('category', 'class_category')
-                ->orderBy('sort_order')
-                ->orderBy('value')
+            'products' => Product::query()
+                ->with(['program', 'category', 'frequency'])
+                ->where(fn ($query) => $query
+                    ->where('status', 'active')
+                    ->when($learningClass->product_id, fn ($query, $id) => $query->orWhere('id', $id)))
+                ->orderBy('name')
                 ->get(),
             'days' => self::DAYS,
         ]);
@@ -154,74 +176,110 @@ class LearningClassController extends Controller
     private function validatedData(Request $request, ?LearningClass $learningClass = null): array
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            ...($learningClass ? ['status' => ['required', Rule::in(LearningClass::STATUSES)]] : []),
+            'product_id' => ['required', Rule::exists('products', 'id')->where(fn ($query) => $query->where(fn ($query) => $query
+                ->where('status', 'active')
+                ->when($learningClass, fn ($query) => $query->orWhere('id', $learningClass->product_id))))],
             'student_id' => ['required', Rule::exists('users', 'id')->where('role', 'murid')],
             'teacher_id' => ['required', Rule::exists('users', 'id')->where('role', 'guru')],
-            'program_id' => ['required', Rule::exists('lookup_values', 'id')->where('category', 'program')],
-            'category_id' => ['required', Rule::exists('lookup_values', 'id')->where('category', 'class_category')],
-            'schedules' => ['required', 'array', 'min:1', 'max:20'],
-            'schedules.*.day' => ['required', Rule::in(array_keys(self::DAYS))],
-            'schedules.*.lesson_time' => ['required', 'date_format:H:i'],
-            'schedules.*.duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
         ]);
 
+        $product = Product::with('frequency')->findOrFail($data['product_id']);
+        $isMonthly = (bool) $product->frequency?->is_monthly;
+        $duration = (int) $product->duration_minutes;
         $errors = [];
-        $submittedSchedules = $data['schedules'];
+        $slots = [];
+        $schedules = [];
+        $lessonsToCreate = [];
+        $lessonIdsToDelete = [];
 
-        foreach ($submittedSchedules as $index => $schedule) {
-            $start = $this->minutesAfterMidnight($schedule['lesson_time']);
-            $end = $start + (int) $schedule['duration_minutes'];
+        if ($learningClass && $learningClass->isMonthly() !== $isMonthly) {
+            $errors['product_id'][] = 'Frekuensi bulanan dan non-bulanan tidak dapat saling diganti pada kelas yang sudah ada.';
+        }
 
-            foreach (array_slice($submittedSchedules, $index + 1, null, true) as $otherIndex => $otherSchedule) {
-                if (
-                    $schedule['day'] === $otherSchedule['day']
-                    && $this->intervalsOverlap(
-                        $start,
-                        $end,
-                        $this->minutesAfterMidnight($otherSchedule['lesson_time']),
-                        $this->minutesAfterMidnight($otherSchedule['lesson_time']) + (int) $otherSchedule['duration_minutes'],
-                    )
-                ) {
-                    $errors["schedules.$otherIndex.lesson_time"][] =
-                        'Jadwal ini bertabrakan dengan jadwal lain pada hari yang sama.';
+        if ($isMonthly) {
+            $validated = $request->validate([
+                'schedules' => ['required', 'array', 'min:1', 'max:20'],
+                'schedules.*.day' => ['required', Rule::in(array_keys(self::DAYS))],
+                'schedules.*.lesson_time' => ['required', 'date_format:H:i'],
+            ]);
+
+            foreach ($validated['schedules'] as $index => $schedule) {
+                $slots[] = $this->slot($schedule['day'], null, $schedule['lesson_time'], $duration, "schedules.$index.lesson_time");
+                $schedules[] = [
+                    'day' => $schedule['day'],
+                    'lesson_time' => $schedule['lesson_time'],
+                    'duration_minutes' => $duration,
+                ];
+            }
+        } else {
+            $validated = $request->validate([
+                'lessons' => ['required', 'array', 'min:1', 'max:50'],
+                'lessons.*.lesson_date' => ['required', 'date_format:Y-m-d'],
+                'lessons.*.lesson_time' => ['required', 'date_format:H:i'],
+            ]);
+
+            $existingLessons = $learningClass ? $learningClass->lessons()->get() : collect();
+            $existingKeys = $existingLessons
+                ->map(fn (LearningClassLesson $lesson): string => $this->lessonKey($lesson->lesson_date, $lesson->lesson_time))
+                ->all();
+            $submittedKeys = [];
+            $today = now()->toDateString();
+
+            foreach ($validated['lessons'] as $index => $lesson) {
+                $key = $this->lessonKey($lesson['lesson_date'], $lesson['lesson_time']);
+                $isExisting = in_array($key, $existingKeys, true);
+
+                if (! $isExisting && $lesson['lesson_date'] < $today) {
+                    $errors["lessons.$index.lesson_date"][] = 'Tanggal pertemuan sudah lewat.';
                 }
+
+                if (! $isExisting) {
+                    $lessonsToCreate[] = [
+                        'teacher_id' => $data['teacher_id'],
+                        'lesson_date' => $lesson['lesson_date'],
+                        'lesson_time' => $lesson['lesson_time'],
+                        'duration_minutes' => $duration,
+                    ];
+                }
+
+                $submittedKeys[] = $key;
+                $slots[] = $this->slot(null, $lesson['lesson_date'], $lesson['lesson_time'], $duration, "lessons.$index.lesson_time");
+            }
+
+            foreach ($existingLessons as $lesson) {
+                if (in_array($this->lessonKey($lesson->lesson_date, $lesson->lesson_time), $submittedKeys, true)) {
+                    continue;
+                }
+
+                if ($this->lessonHasProgress($lesson)) {
+                    $errors['lessons'][] = sprintf(
+                        'Pertemuan %s pukul %s sudah memiliki status atau catatan dan tidak dapat dihapus.',
+                        Carbon::parse($lesson->lesson_date)->format('d/m/Y'),
+                        substr($lesson->lesson_time, 0, 5),
+                    );
+                }
+
+                $lessonIdsToDelete[] = $lesson->getKey();
             }
         }
 
-        $conflictingSchedules = LearningClassSchedule::query()
-            ->with('learningClass')
-            ->whereIn('day', array_column($submittedSchedules, 'day'))
-            ->whereHas('learningClass', function ($query) use ($data, $learningClass): void {
-                $query->where(function ($query) use ($data): void {
-                    $query->where('student_id', $data['student_id'])
-                        ->orWhere('teacher_id', $data['teacher_id']);
-                });
-
-                if ($learningClass) {
-                    $query->where('learning_classes.id', '!=', $learningClass->getKey());
+        foreach ($slots as $index => $slot) {
+            foreach (array_slice($slots, $index + 1, null, true) as $otherIndex => $otherSlot) {
+                if ($this->slotsConflict($slot, $otherSlot)) {
+                    $errors[$otherSlot['field']][] = 'Jadwal ini bertabrakan dengan jadwal lain pada kelas ini.';
                 }
-            })
-            ->get();
+            }
 
-        foreach ($submittedSchedules as $index => $schedule) {
-            $start = $this->minutesAfterMidnight($schedule['lesson_time']);
-            $end = $start + (int) $schedule['duration_minutes'];
-
-            foreach ($conflictingSchedules as $existingSchedule) {
-                if (
-                    $schedule['day'] === $existingSchedule->day
-                    && $this->intervalsOverlap(
-                        $start,
-                        $end,
-                        $this->minutesAfterMidnight($existingSchedule->lesson_time),
-                        $this->minutesAfterMidnight($existingSchedule->lesson_time) + $existingSchedule->duration_minutes,
-                    )
-                ) {
-                    $errors["schedules.$index.lesson_time"][] = sprintf(
+            foreach ($this->existingSlots($data, $learningClass) as $existingSlot) {
+                if ($this->slotsConflict($slot, $existingSlot)) {
+                    $errors[$slot['field']][] = sprintf(
                         'Jadwal bertabrakan dengan kelas "%s" pada %s pukul %s.',
-                        $existingSchedule->learningClass->name,
-                        self::DAYS[$existingSchedule->day],
-                        substr($existingSchedule->lesson_time, 0, 5),
+                        $existingSlot['class_name'],
+                        $existingSlot['date'] !== null
+                            ? Carbon::parse($existingSlot['date'])->format('d/m/Y')
+                            : self::DAYS[$existingSlot['day']],
+                        $slot['time'],
                     );
                 }
             }
@@ -231,7 +289,135 @@ class LearningClassController extends Controller
             throw ValidationException::withMessages($errors);
         }
 
-        return $data;
+        return [
+            ...$data,
+            'product' => $product,
+            'is_monthly' => $isMonthly,
+            'schedules' => $schedules,
+            'lessons_to_create' => $lessonsToCreate,
+            'lesson_ids_to_delete' => $lessonIdsToDelete,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function saveSessions(LearningClass $learningClass, array $data): void
+    {
+        if ($data['is_monthly']) {
+            $learningClass->schedules()->createMany($data['schedules']);
+
+            return;
+        }
+
+        $learningClass->lessons()->createMany($data['lessons_to_create']);
+    }
+
+    /**
+     * Jadwal mingguan memakai hari saja; jadwal tanggal memakai tanggal dan hari dari tanggal tersebut.
+     *
+     * @return array{day: ?string, date: ?string, start: int, end: int, time: string, field: string, class_name: string}
+     */
+    private function slot(?string $day, ?string $date, string $time, int $duration, string $field = '', string $className = ''): array
+    {
+        $start = $this->minutesAfterMidnight($time);
+
+        return [
+            'day' => $date !== null ? $this->dayKeyFor($date) : $day,
+            'date' => $date,
+            'start' => $start,
+            'end' => $start + $duration,
+            'time' => substr($time, 0, 5),
+            'field' => $field,
+            'class_name' => $className,
+        ];
+    }
+
+    /**
+     * @param  array{day: ?string, date: ?string, start: int, end: int}  $slot
+     * @param  array{day: ?string, date: ?string, start: int, end: int}  $otherSlot
+     */
+    private function slotsConflict(array $slot, array $otherSlot): bool
+    {
+        if (! $this->intervalsOverlap($slot['start'], $slot['end'], $otherSlot['start'], $otherSlot['end'])) {
+            return false;
+        }
+
+        if ($slot['date'] !== null && $otherSlot['date'] !== null) {
+            return $slot['date'] === $otherSlot['date'];
+        }
+
+        return $slot['day'] !== null && $slot['day'] === $otherSlot['day'];
+    }
+
+    /**
+     * Jadwal dan pertemuan kelas lain yang memakai murid atau guru yang sama.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<array{day: ?string, date: ?string, start: int, end: int, time: string, field: string, class_name: string}>
+     */
+    private function existingSlots(array $data, ?LearningClass $learningClass): array
+    {
+        $classes = LearningClass::query()
+            ->where(fn ($query) => $query
+                ->where('student_id', $data['student_id'])
+                ->orWhere('teacher_id', $data['teacher_id']))
+            ->when($learningClass, fn ($query) => $query->whereKeyNot($learningClass->getKey()))
+            ->get(['id', 'name']);
+
+        $classIds = $classes->modelKeys();
+        $classNames = $classes->pluck('name', 'id');
+        $slots = [];
+
+        foreach (LearningClassSchedule::query()->whereIn('learning_class_id', $classIds)->get() as $schedule) {
+            $slots[] = $this->slot(
+                $schedule->day,
+                null,
+                $schedule->lesson_time,
+                (int) $schedule->duration_minutes,
+                className: $classNames[$schedule->learning_class_id],
+            );
+        }
+
+        $lessons = LearningClassLesson::query()
+            ->whereIn('learning_class_id', $classIds)
+            ->where('lesson_date', '>=', now()->toDateString())
+            ->with('lessonStatus')
+            ->get()
+            ->reject(fn (LearningClassLesson $lesson): bool => $lesson->lessonStatus?->system_key === 'dibatalkan');
+
+        foreach ($lessons as $lesson) {
+            $slots[] = $this->slot(
+                null,
+                Carbon::parse($lesson->lesson_date)->toDateString(),
+                $lesson->lesson_time,
+                (int) $lesson->duration_minutes,
+                className: $classNames[$lesson->learning_class_id],
+            );
+        }
+
+        return $slots;
+    }
+
+    private function dayKeyFor(string $date): ?string
+    {
+        $isoDay = Carbon::parse($date)->dayOfWeekIso;
+
+        return $isoDay <= 6 ? array_keys(self::DAYS)[$isoDay - 1] : null;
+    }
+
+    private function lessonKey(mixed $date, string $time): string
+    {
+        return Carbon::parse($date)->toDateString().' '.substr($time, 0, 5);
+    }
+
+    private function lessonHasProgress(LearningClassLesson $lesson): bool
+    {
+        return (int) $lesson->status !== 0
+            || filled($lesson->teacher_attendance_at)
+            || filled($lesson->reason)
+            || filled($lesson->notes)
+            || filled($lesson->lesson_photo);
     }
 
     private function minutesAfterMidnight(string $time): int

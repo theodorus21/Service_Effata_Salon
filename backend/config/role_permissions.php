@@ -30,6 +30,14 @@ return [
             'learning_classes.generate' => 'Tombol generate jadwal',
         ],
     ],
+    'products' => [
+        'label' => 'Produk',
+        'permissions' => [
+            'products.view' => 'Lihat daftar produk',
+            'products.create' => 'Tombol tambah produk',
+            'products.update' => 'Tombol ubah/simpan produk',
+        ],
+    ],
     'class_reports' => [
         'label' => 'Report Kelas',
         'permissions' => [
@@ -84,6 +92,14 @@ return [
             'settings.categories.create' => 'Kategori: tombol tambah/simpan',
             'settings.categories.update' => 'Kategori: tombol ubah/simpan',
             'settings.categories.delete' => 'Kategori: tombol hapus',
+            'settings.levels.view' => 'Submenu Level Kelas',
+            'settings.levels.create' => 'Level: tombol tambah/simpan',
+            'settings.levels.update' => 'Level: tombol ubah/simpan',
+            'settings.levels.delete' => 'Level: tombol hapus',
+            'settings.frequencies.view' => 'Submenu Frekuensi Kelas',
+            'settings.frequencies.create' => 'Frekuensi: tombol tambah/simpan',
+            'settings.frequencies.update' => 'Frekuensi: tombol ubah/simpan',
+            'settings.frequencies.delete' => 'Frekuensi: tombol hapus',
             'settings.lesson_statuses.view' => 'Submenu Status Jadwal Les',
             'settings.lesson_statuses.create' => 'Status les: tombol tambah/simpan',
             'settings.lesson_statuses.update' => 'Status les: tombol ubah/simpan',

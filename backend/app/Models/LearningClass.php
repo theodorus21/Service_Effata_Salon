@@ -6,10 +6,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
-#[Fillable(['name', 'student_id', 'teacher_id', 'program_id', 'category_id'])]
+#[Fillable(['name', 'product_id', 'price', 'student_id', 'teacher_id', 'status'])]
 class LearningClass extends Model
 {
+    public const STATUSES = ['active', 'inactive', 'complete'];
+
     public function student(): BelongsTo
     {
         return $this->belongsTo(User::class, 'student_id');
@@ -20,14 +23,19 @@ class LearningClass extends Model
         return $this->belongsTo(User::class, 'teacher_id');
     }
 
-    public function program(): BelongsTo
+    public function product(): BelongsTo
     {
-        return $this->belongsTo(LookupValue::class, 'program_id');
+        return $this->belongsTo(Product::class);
     }
 
-    public function category(): BelongsTo
+    public function program(): HasOneThrough
     {
-        return $this->belongsTo(LookupValue::class, 'category_id');
+        return $this->hasOneThrough(LookupValue::class, Product::class, 'id', 'id', 'product_id', 'program_id');
+    }
+
+    public function category(): HasOneThrough
+    {
+        return $this->hasOneThrough(LookupValue::class, Product::class, 'id', 'id', 'product_id', 'category_id');
     }
 
     public function schedules(): HasMany
@@ -43,5 +51,10 @@ class LearningClass extends Model
     public function reports(): HasMany
     {
         return $this->hasMany(LearningClassReport::class);
+    }
+
+    public function isMonthly(): bool
+    {
+        return (bool) $this->product?->frequency?->is_monthly;
     }
 }

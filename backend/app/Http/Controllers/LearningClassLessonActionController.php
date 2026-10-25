@@ -286,6 +286,7 @@ class LearningClassLessonActionController extends Controller
             ->where('learning_class_id', $learningClass->id)
             ->whereDate('lesson_date', $data['lesson_date'])
             ->whereTime('lesson_time', $data['lesson_time'])
+            ->where('status', '!=', $cancelledStatus->code)
             ->where('id', '!=', $lesson->id)
             ->exists();
 

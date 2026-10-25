@@ -317,6 +317,10 @@
     gap: 8px;
 }
 
+.product-filter-form {
+    grid-template-columns: repeat(5, minmax(120px, 1fr)) auto;
+}
+
 .schedule-filter-actions .primary-action,
 .schedule-filter-actions .secondary-action {
     min-height: 36px;
@@ -1928,6 +1932,10 @@
     margin-bottom: 17px;
 }
 
+.master-data-field[hidden] {
+    display: none;
+}
+
 .master-data-field label {
     color: #554a4d;
     font-size: 11px;
@@ -2025,7 +2033,7 @@
 
 .schedule-row {
     display: grid;
-    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) minmax(120px, 1fr) auto;
+    grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) auto;
     align-items: end;
     gap: 10px;
     padding: 12px;

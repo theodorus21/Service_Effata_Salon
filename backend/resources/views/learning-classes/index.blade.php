@@ -38,6 +38,7 @@
                         <th>Murid &amp; guru</th>
                         <th>Program</th>
                         <th>Kategori</th>
+                        <th>Status</th>
                         <th>Jadwal kelas</th>
                         <th class="class-actions-heading">Aksi</th>
                     </tr>
@@ -60,6 +61,7 @@
                             </td>
                             <td>{{ $learningClass->program->value }}</td>
                             <td>{{ $learningClass->category->value }}</td>
+                            <td>{{ ucfirst($learningClass->status) }}</td>
                             <td class="class-schedules-cell">
                                 <div class="class-schedule-list">
                                     @foreach ($learningClass->schedules as $schedule)
@@ -84,8 +86,7 @@
                                     @if (auth()->user()->hasPermission('learning_classes.update'))
                                         <a class="table-action" href="{{ route('learning-classes.edit', $learningClass) }}">Ubah</a>
                                     @endif
-                                    @if (auth()->user()->hasPermission('learning_classes.generate'))
-                                        <a class="table-action table-action-generate" href="{{ route('learning-classes.lessons.generate.form', $learningClass) }}">Generate jadwal</a>
+                                    @if ($learningClass->isMonthly() && auth()->user()->hasPermission('learning_classes.generate')) href="{{ route('learning-classes.lessons.generate.form', $learningClass) }}">Generate jadwal</a>
                                     @endif
                                     @if (auth()->user()->hasPermission('learning_classes.delete'))
                                     <form method="POST" action="{{ route('learning-classes.destroy', $learningClass) }}" onsubmit="return confirm('Hapus kelas ini?')">
@@ -99,7 +100,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td class="master-data-empty" colspan="6">Belum ada kelas.</td>
+                            <td class="master-data-empty" colspan="7">Belum ada kelas.</td>
                         </tr>
                     @endforelse
                 </tbody>

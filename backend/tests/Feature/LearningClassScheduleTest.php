@@ -272,8 +272,7 @@ class LearningClassScheduleTest extends TestCase
             'name' => $className,
             'student_id' => $student->id,
             'teacher_id' => $teacher->id,
-            'program_id' => $program->id,
-            'category_id' => $category->id,
+            'product_id' => \Tests\Support\ProductFixture::make($program->id, $category->id)->id,
         ]);
         $learningClass->schedules()->create([
             'day' => $day,

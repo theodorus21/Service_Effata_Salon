@@ -114,8 +114,7 @@ class LearningClassLessonStatusTest extends TestCase
             'name' => 'Kelas Status',
             'student_id' => $student->id,
             'teacher_id' => $teacher->id,
-            'program_id' => $program->id,
-            'category_id' => $category->id,
+            'product_id' => \Tests\Support\ProductFixture::make($program->id, $category->id)->id,
         ]);
     }
 }

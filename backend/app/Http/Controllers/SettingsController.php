@@ -27,6 +27,18 @@ class SettingsController extends Controller
                 ->orderBy('sort_order')
                 ->orderBy('value')
                 ->get(),
+            'classLevels' => LookupValue::query()
+                ->where('category', 'class_level')
+                ->withCount('levelProducts')
+                ->orderBy('sort_order')
+                ->orderBy('value')
+                ->get(),
+            'classFrequencies' => LookupValue::query()
+                ->where('category', 'class_frequency')
+                ->withCount('frequencyProducts')
+                ->orderBy('sort_order')
+                ->orderBy('value')
+                ->get(),
             'lessonStatuses' => LearningClassLessonStatus::query()
                 ->withCount('lessons')
                 ->orderBy('sort_order')
@@ -73,10 +85,10 @@ class SettingsController extends Controller
     {
         abort_unless($program->category === 'program', 404);
 
-        if ($program->learningClasses()->exists()) {
+        if ($program->learningClasses()->exists() || $program->programProducts()->exists()) {
             return redirect()
                 ->route('settings.index')
-                ->withErrors(['program' => 'Program tidak dapat dihapus karena masih digunakan oleh kelas.']);
+                ->withErrors(['program' => 'Program tidak dapat dihapus karena masih digunakan oleh kelas atau produk.']);
         }
 
         $program->delete();
@@ -124,10 +136,10 @@ class SettingsController extends Controller
     {
         abort_unless($classCategory->category === 'class_category', 404);
 
-        if ($classCategory->categorizedClasses()->exists()) {
+        if ($classCategory->categorizedClasses()->exists() || $classCategory->categoryProducts()->exists()) {
             return redirect()
                 ->route('settings.index')
-                ->withErrors(['class_category' => 'Kategori tidak dapat dihapus karena masih digunakan oleh kelas.']);
+                ->withErrors(['class_category' => 'Kategori tidak dapat dihapus karena masih digunakan oleh kelas atau produk.']);
         }
 
         $classCategory->delete();
@@ -135,6 +147,108 @@ class SettingsController extends Controller
         return redirect()
             ->route('settings.index')
             ->with('status', 'Kategori kelas berhasil dihapus.');
+    }
+
+    public function createLevel(): View
+    {
+        return view('settings.level-form', ['classLevel' => new LookupValue]);
+    }
+
+    public function storeLevel(Request $request): RedirectResponse
+    {
+        LookupValue::create([
+            ...$this->validatedLookupData($request, 'class_level'),
+            'category' => 'class_level',
+        ]);
+
+        return redirect()
+            ->route('settings.index')
+            ->with('status', 'Level kelas berhasil ditambahkan.');
+    }
+
+    public function editLevel(LookupValue $classLevel): View
+    {
+        abort_unless($classLevel->category === 'class_level', 404);
+
+        return view('settings.level-form', compact('classLevel'));
+    }
+
+    public function updateLevel(Request $request, LookupValue $classLevel): RedirectResponse
+    {
+        abort_unless($classLevel->category === 'class_level', 404);
+        $classLevel->update($this->validatedLookupData($request, 'class_level', $classLevel));
+
+        return redirect()
+            ->route('settings.index')
+            ->with('status', 'Level kelas berhasil diperbarui.');
+    }
+
+    public function destroyLevel(LookupValue $classLevel): RedirectResponse
+    {
+        abort_unless($classLevel->category === 'class_level', 404);
+
+        if ($classLevel->levelProducts()->exists()) {
+            return redirect()
+                ->route('settings.index')
+                ->withErrors(['class_level' => 'Level tidak dapat dihapus karena masih digunakan oleh produk.']);
+        }
+
+        $classLevel->delete();
+
+        return redirect()
+            ->route('settings.index')
+            ->with('status', 'Level kelas berhasil dihapus.');
+    }
+
+    public function createFrequency(): View
+    {
+        return view('settings.frequency-form', ['classFrequency' => new LookupValue]);
+    }
+
+    public function storeFrequency(Request $request): RedirectResponse
+    {
+        LookupValue::create([
+            ...$this->validatedLookupData($request, 'class_frequency'),
+            'category' => 'class_frequency',
+        ]);
+
+        return redirect()
+            ->route('settings.index')
+            ->with('status', 'Frekuensi kelas berhasil ditambahkan.');
+    }
+
+    public function editFrequency(LookupValue $classFrequency): View
+    {
+        abort_unless($classFrequency->category === 'class_frequency', 404);
+
+        return view('settings.frequency-form', compact('classFrequency'));
+    }
+
+    public function updateFrequency(Request $request, LookupValue $classFrequency): RedirectResponse
+    {
+        abort_unless($classFrequency->category === 'class_frequency', 404);
+        $classFrequency->update($this->validatedLookupData($request, 'class_frequency', $classFrequency));
+
+        return redirect()
+            ->route('settings.index')
+            ->with('status', 'Frekuensi kelas berhasil diperbarui.');
+    }
+
+    public function destroyFrequency(LookupValue $classFrequency): RedirectResponse
+    {
+        abort_unless($classFrequency->category === 'class_frequency', 404);
+
+        if ($classFrequency->frequencyProducts()->exists()) {
+            return redirect()
+                ->route('settings.index')
+                ->withErrors(['class_frequency' => 'Frekuensi tidak dapat dihapus karena masih digunakan oleh produk.']);
+        }
+
+        $classFrequency->delete();
+
+        return redirect()
+            ->route('settings.index')
+            ->with('status', 'Frekuensi kelas berhasil dihapus.');
     }
 
     public function createLessonStatus(): View
@@ -240,6 +354,30 @@ class SettingsController extends Controller
             ],
             'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validatedLookupData(Request $request, string $category, ?LookupValue $lookup = null): array
+    {
+        $data = $request->validate([
+            'value' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('lookup_values', 'value')
+                    ->where('category', $category)
+                    ->ignore($lookup?->id),
+            ],
+            'sort_order' => ['required', 'integer', 'min:0', 'max:65535'],
+        ]);
+
+        if ($category === 'class_frequency') {
+            $data['is_monthly'] = $request->boolean('is_monthly');
+        }
+
+        return $data;
     }
 
     /**

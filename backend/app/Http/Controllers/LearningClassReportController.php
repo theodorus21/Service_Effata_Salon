@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -94,10 +95,21 @@ class LearningClassReportController extends Controller
             'additional_notes' => ['nullable', 'string', 'max:10000'],
         ]);
 
+        $reportExists = $learningClass->reports()
+            ->where('period_start', $period['period_start'])
+            ->where('period_end', $period['period_end'])
+            ->exists();
+
+        if ($reportExists) {
+            throw ValidationException::withMessages([
+                'period_start' => 'Report untuk periode ini sudah pernah dibuat.',
+            ]);
+        }
+
         $learningClass->reports()->create([
             'teacher_id' => $learningClass->teacher_id,
             'student_id' => $learningClass->student_id,
-            'program_id' => $learningClass->program_id,
+            'program_id' => $learningClass->program->id,
             'period_start' => $period['period_start'],
             'period_end' => $period['period_end'],
             'development_evaluation' => $data['development_evaluation'] ?? null,

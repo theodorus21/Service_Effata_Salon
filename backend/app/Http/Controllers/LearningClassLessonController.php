@@ -34,6 +34,8 @@ class LearningClassLessonController extends Controller
 
     public function generate(Request $request, LearningClass $learningClass): RedirectResponse
     {
+        abort_unless($learningClass->isMonthly(), 422, 'Generate jadwal hanya untuk kelas dengan frekuensi bulanan.');
+
         $data = $request->validate([
             'month' => ['required', 'integer', 'between:1,12'],
             'year' => ['required', 'integer', 'between:2000,2100'],
@@ -67,9 +69,21 @@ class LearningClassLessonController extends Controller
             }
         }
 
-        $createdCount = $lessons === []
-            ? 0
-            : DB::table('learning_class_lessons')->insertOrIgnore($lessons);
+        $existingOccurrences = DB::table('learning_class_lessons')
+            ->where('learning_class_id', $learningClass->id)
+            ->whereBetween('lesson_date', [$month->startOfMonth()->toDateString(), $month->endOfMonth()->toDateString()])
+            ->get(['lesson_date', 'lesson_time'])
+            ->mapWithKeys(fn ($lesson) => [$lesson->lesson_date.' '.substr($lesson->lesson_time, 0, 5) => true]);
+
+        $lessons = array_values(array_filter(
+            $lessons,
+            fn (array $lesson): bool => ! $existingOccurrences->has($lesson['lesson_date'].' '.substr($lesson['lesson_time'], 0, 5)),
+        ));
+
+        if ($lessons !== []) {
+            DB::table('learning_class_lessons')->insert($lessons);
+        }
+        $createdCount = count($lessons);
 
         return redirect()
             ->route('learning-classes.index', ['month' => $month->format('Y-m')])

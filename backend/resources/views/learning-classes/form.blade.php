@@ -27,12 +27,6 @@
             @endif
 
             <div class="master-data-field">
-                <label for="name">Nama kelas</label>
-                <input id="name" name="name" type="text" value="{{ old('name', $learningClass->name) }}" required maxlength="255">
-                @error('name')<p class="master-data-error">{{ $message }}</p>@enderror
-            </div>
-
-            <div class="master-data-field">
                 <label for="student_id">Nama murid</label>
                 <select id="student_id" name="student_id" required>
                     <option value="">Pilih murid</option>
@@ -61,42 +55,51 @@
             </div>
 
             <div class="master-data-field">
-                <label for="program_id">Program</label>
-                <select id="program_id" name="program_id" required>
-                    <option value="">Pilih program</option>
-                    @foreach ($programs as $program)
-                        <option value="{{ $program->id }}" @selected((string) old('program_id', $learningClass->program_id) === (string) $program->id)>{{ $program->value }}</option>
+                <label for="product_id">Produk</label>
+                <select id="product_id" name="product_id" required>
+                    <option value="">Pilih produk</option>
+                    @foreach ($products as $product)
+                        <option value="{{ $product->id }}" data-monthly="{{ $product->frequency?->is_monthly ? '1' : '0' }}" data-duration="{{ $product->duration_minutes }}" @selected((string) old('product_id', $learningClass->product_id) === (string) $product->id)>{{ $product->name }} ({{ $product->code }})</option>
                     @endforeach
                 </select>
-                @if ($programs->isEmpty())
-                    <small>Belum ada pilihan program. Tambahkan melalui menu Pengaturan.</small>
+                <small>Nama kelas mengikuti nama produk.</small>
+                <small id="duration-info"></small>
+                @if ($products->isEmpty())
+                    <small>Belum ada produk aktif. Tambahkan melalui menu Produk.</small>
                 @endif
-                @error('program_id')<p class="master-data-error">{{ $message }}</p>@enderror
+                @error('product_id')<p class="master-data-error">{{ $message }}</p>@enderror
             </div>
 
+            @if ($isEditing)
             <div class="master-data-field">
-                <label for="category_id">Kategori</label>
-                <select id="category_id" name="category_id" required>
-                    <option value="">Pilih kategori</option>
-                    @foreach ($categories as $category)
-                        <option value="{{ $category->id }}" @selected((string) old('category_id', $learningClass->category_id) === (string) $category->id)>{{ $category->value }}</option>
+                <label for="price_display">Harga</label>
+                <input id="price_display" type="text" value="Rp {{ number_format($learningClass->price, 0, ',', '.') }}" readonly>
+            </div>
+            @endif
+
+            @if ($learningClass->exists)
+            <div class="master-data-field">
+                <label for="status">Status</label>
+                <select id="status" name="status" required>
+                    @foreach (['active' => 'Active', 'inactive' => 'Inactive', 'complete' => 'Complete'] as $value => $label)
+                        <option value="{{ $value }}" @selected(old('status', $learningClass->status) === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
-                @if ($categories->isEmpty())
-                    <small>Belum ada pilihan kategori kelas.</small>
-                @endif
-                @error('category_id')<p class="master-data-error">{{ $message }}</p>@enderror
+                @error('status')<p class="master-data-error">{{ $message }}</p>@enderror
             </div>
+            @endif
 
-            <div class="master-data-field">
+            <p id="section-placeholder" class="master-data-field"><small>Pilih produk terlebih dahulu untuk menentukan jadwal kelas.</small></p>
+
+            <div class="master-data-field" data-section="monthly" hidden>
                 <div class="schedule-heading">
                     <div>
                         <label>Jadwal kelas</label>
-                        <small>Tambahkan satu atau lebih jadwal.</small>
+                        <small>Produk bulanan: jadwal mingguan ini di-generate menjadi pertemuan setiap bulan.</small>
                     </div>
                     <button class="secondary-action schedule-add-button" id="add-schedule" type="button">+ Tambah jadwal</button>
                 </div>
-                <div class="schedule-rows" id="schedule-rows">
+                <div class="schedule-rows" id="schedule-rows" data-max="20">
                     @foreach ($scheduleRows as $index => $schedule)
                         <div class="schedule-row">
                             <div class="schedule-input">
@@ -114,16 +117,39 @@
                                 <input id="schedules-{{ $index }}-lesson-time" data-field="lesson_time" name="schedules[{{ $index }}][lesson_time]" type="time" value="{{ $schedule['lesson_time'] ?? '' }}" required>
                                 @error("schedules.$index.lesson_time")<p class="master-data-error">{{ $message }}</p>@enderror
                             </div>
-                            <div class="schedule-input">
-                                <label for="schedules-{{ $index }}-duration">Durasi (menit)</label>
-                                <input id="schedules-{{ $index }}-duration" data-field="duration_minutes" name="schedules[{{ $index }}][duration_minutes]" type="number" value="{{ $schedule['duration_minutes'] ?? '' }}" required min="1" max="1440" step="1">
-                                @error("schedules.$index.duration_minutes")<p class="master-data-error">{{ $message }}</p>@enderror
-                            </div>
                             <button class="schedule-remove-button" type="button" aria-label="Hapus jadwal">Hapus</button>
                         </div>
                     @endforeach
                 </div>
                 @error('schedules')<p class="master-data-error">{{ $message }}</p>@enderror
+            </div>
+
+            <div class="master-data-field" data-section="dated" hidden>
+                <div class="schedule-heading">
+                    <div>
+                        <label>Tanggal kelas</label>
+                        <small>Pilih tanggal dan jam les. Tambahkan lebih dari satu tanggal bila diperlukan.</small>
+                    </div>
+                    <button class="secondary-action schedule-add-button" id="add-lesson" type="button">+ Tambah tanggal</button>
+                </div>
+                <div class="schedule-rows" id="lesson-rows" data-max="50">
+                    @foreach ($lessonRows as $index => $lesson)
+                        <div class="schedule-row">
+                            <div class="schedule-input">
+                                <label for="lessons-{{ $index }}-lesson-date">Tanggal</label>
+                                <input id="lessons-{{ $index }}-lesson-date" data-field="lesson_date" name="lessons[{{ $index }}][lesson_date]" type="date" value="{{ $lesson['lesson_date'] ?? '' }}" required>
+                                @error("lessons.$index.lesson_date")<p class="master-data-error">{{ $message }}</p>@enderror
+                            </div>
+                            <div class="schedule-input">
+                                <label for="lessons-{{ $index }}-lesson-time">Jam les</label>
+                                <input id="lessons-{{ $index }}-lesson-time" data-field="lesson_time" name="lessons[{{ $index }}][lesson_time]" type="time" value="{{ $lesson['lesson_time'] ?? '' }}" required>
+                                @error("lessons.$index.lesson_time")<p class="master-data-error">{{ $message }}</p>@enderror
+                            </div>
+                            <button class="schedule-remove-button" type="button" aria-label="Hapus tanggal">Hapus</button>
+                        </div>
+                    @endforeach
+                </div>
+                @error('lessons')<p class="master-data-error">{{ $message }}</p>@enderror
             </div>
 
             <div class="master-data-form-actions">
@@ -150,11 +176,21 @@
                 <label>Jam les</label>
                 <input data-field="lesson_time" type="time" required>
             </div>
-            <div class="schedule-input">
-                <label>Durasi (menit)</label>
-                <input data-field="duration_minutes" type="number" required min="1" max="1440" step="1">
-            </div>
             <button class="schedule-remove-button" type="button" aria-label="Hapus jadwal">Hapus</button>
+        </div>
+    </template>
+
+    <template id="lesson-row-template">
+        <div class="schedule-row">
+            <div class="schedule-input">
+                <label>Tanggal</label>
+                <input data-field="lesson_date" type="date" required>
+            </div>
+            <div class="schedule-input">
+                <label>Jam les</label>
+                <input data-field="lesson_time" type="time" required>
+            </div>
+            <button class="schedule-remove-button" type="button" aria-label="Hapus tanggal">Hapus</button>
         </div>
     </template>
 @endsection

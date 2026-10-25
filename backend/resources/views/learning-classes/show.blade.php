@@ -38,9 +38,15 @@
             <div>
                 <dt>Jadwal</dt>
                 <dd>
-                    @foreach ($learningClass->schedules as $schedule)
-                        {{ $days[$schedule->day] }} · {{ substr($schedule->lesson_time, 0, 5) }} · {{ $schedule->duration_minutes }} menit<br>
-                    @endforeach
+                    @if ($learningClass->isMonthly())
+                        @foreach ($learningClass->schedules as $schedule)
+                            {{ $days[$schedule->day] }} · {{ substr($schedule->lesson_time, 0, 5) }} · {{ $schedule->duration_minutes }} menit<br>
+                        @endforeach
+                    @else
+                        @foreach ($learningClass->lessons as $lesson)
+                            {{ \Illuminate\Support\Carbon::parse($lesson->lesson_date)->format('d/m/Y') }} · {{ substr($lesson->lesson_time, 0, 5) }} · {{ $lesson->duration_minutes }} menit<br>
+                        @endforeach
+                    @endif
                 </dd>
             </div>
         </dl>

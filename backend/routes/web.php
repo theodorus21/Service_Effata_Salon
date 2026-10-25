@@ -7,6 +7,7 @@ use App\Http\Controllers\LearningClassLessonController;
 use App\Http\Controllers\LearningClassReportController;
 use App\Http\Controllers\LearningClassScheduleController;
 use App\Http\Controllers\MasterDataController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\RoleAccessController;
 use App\Http\Controllers\SettingsController;
 use Illuminate\Support\Facades\Route;
@@ -130,6 +131,13 @@ Route::middleware('auth')->group(function (): void {
         ->middleware('permission:learning_classes.delete')
         ->name('learning-classes.destroy');
 
+    Route::get('/products', [ProductController::class, 'index'])->middleware('permission:products.view')->name('products.index');
+    Route::get('/products/create', [ProductController::class, 'create'])->middleware('permission:products.create')->name('products.create');
+    Route::post('/products', [ProductController::class, 'store'])->middleware('permission:products.create')->name('products.store');
+    Route::get('/products/{product}', [ProductController::class, 'show'])->middleware('permission:products.view')->name('products.show');
+    Route::get('/products/{product}/edit', [ProductController::class, 'edit'])->middleware('permission:products.update')->name('products.edit');
+    Route::put('/products/{product}', [ProductController::class, 'update'])->middleware('permission:products.update')->name('products.update');
+
     Route::prefix('settings')
         ->name('settings.')
         ->controller(SettingsController::class)
@@ -145,6 +153,16 @@ Route::middleware('auth')->group(function (): void {
             Route::get('/class-categories/{classCategory}/edit', 'editCategory')->middleware('permission:settings.categories.update')->name('class-categories.edit');
             Route::put('/class-categories/{classCategory}', 'updateCategory')->middleware('permission:settings.categories.update')->name('class-categories.update');
             Route::delete('/class-categories/{classCategory}', 'destroyCategory')->middleware('permission:settings.categories.delete')->name('class-categories.destroy');
+            Route::get('/class-levels/create', 'createLevel')->middleware('permission:settings.levels.create')->name('class-levels.create');
+            Route::post('/class-levels', 'storeLevel')->middleware('permission:settings.levels.create')->name('class-levels.store');
+            Route::get('/class-levels/{classLevel}/edit', 'editLevel')->middleware('permission:settings.levels.update')->name('class-levels.edit');
+            Route::put('/class-levels/{classLevel}', 'updateLevel')->middleware('permission:settings.levels.update')->name('class-levels.update');
+            Route::delete('/class-levels/{classLevel}', 'destroyLevel')->middleware('permission:settings.levels.delete')->name('class-levels.destroy');
+            Route::get('/class-frequencies/create', 'createFrequency')->middleware('permission:settings.frequencies.create')->name('class-frequencies.create');
+            Route::post('/class-frequencies', 'storeFrequency')->middleware('permission:settings.frequencies.create')->name('class-frequencies.store');
+            Route::get('/class-frequencies/{classFrequency}/edit', 'editFrequency')->middleware('permission:settings.frequencies.update')->name('class-frequencies.edit');
+            Route::put('/class-frequencies/{classFrequency}', 'updateFrequency')->middleware('permission:settings.frequencies.update')->name('class-frequencies.update');
+            Route::delete('/class-frequencies/{classFrequency}', 'destroyFrequency')->middleware('permission:settings.frequencies.delete')->name('class-frequencies.destroy');
             Route::get('/lesson-statuses/create', 'createLessonStatus')->middleware('permission:settings.lesson_statuses.create')->name('lesson-statuses.create');
             Route::post('/lesson-statuses', 'storeLessonStatus')->middleware('permission:settings.lesson_statuses.create')->name('lesson-statuses.store');
             Route::get('/lesson-statuses/{lessonStatus}/edit', 'editLessonStatus')->middleware('permission:settings.lesson_statuses.update')->name('lesson-statuses.edit');

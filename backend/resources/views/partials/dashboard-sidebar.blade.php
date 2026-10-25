@@ -34,6 +34,14 @@
             <span>Kelas</span>
         </a>
         @endif
+        @if (auth()->user()->hasPermission('products.view'))
+        <a class="nav-item {{ request()->routeIs('products.*') ? 'active' : '' }}" href="{{ route('products.index') }}" @if (request()->routeIs('products.*')) aria-current="page" @endif>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 8 12 3 3 8l9 5 9-5ZM3 8v8l9 5 9-5V8M12 13v8"></path>
+            </svg>
+            <span>Produk</span>
+        </a>
+        @endif
         @if (auth()->user()->hasPermission('class_schedules.view'))
         <a class="nav-item {{ request()->routeIs('class-schedules.*') ? 'active' : '' }}" href="{{ route('class-schedules.index') }}" @if (request()->routeIs('class-schedules.*')) aria-current="page" @endif>
             <svg viewBox="0 0 24 24" aria-hidden="true">

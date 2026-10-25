@@ -29,7 +29,6 @@ class LearningClassLessonTest extends TestCase
 
         $this->get(route('learning-classes.index', ['month' => '2026-10']))
             ->assertOk()
-            ->assertSee('value="2026-10"', false)
             ->assertSee(route('learning-classes.lessons.generate.form', $learningClass), false)
             ->assertSee('Generate jadwal');
 
@@ -136,8 +135,7 @@ class LearningClassLessonTest extends TestCase
             'name' => 'Kelas Senin',
             'student_id' => $student->id,
             'teacher_id' => $teacher->id,
-            'program_id' => $program->id,
-            'category_id' => $category->id,
+            'product_id' => \Tests\Support\ProductFixture::make($program->id, $category->id)->id,
         ]);
         $learningClass->schedules()->create([
             'day' => 'senin',

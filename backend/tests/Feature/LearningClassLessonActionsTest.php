@@ -13,6 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\AuthenticatesAsMasterAdmin;
+use Tests\Support\ProductFixture;
 use Tests\TestCase;
 
 class LearningClassLessonActionsTest extends TestCase
@@ -266,6 +267,32 @@ class LearningClassLessonActionsTest extends TestCase
         $this->assertSame('2026-10-12', $otherLesson->refresh()->lesson_date);
     }
 
+    public function test_reschedule_can_move_a_lesson_onto_a_cancelled_slot_of_the_same_class(): void
+    {
+        [$learningClass, $lesson] = $this->createLesson();
+        $cancelledCode = LearningClassLessonStatus::query()->where('system_key', 'dibatalkan')->value('code');
+        $learningClass->lessons()->create([
+            'lesson_date' => '2026-10-12',
+            'lesson_time' => '11:15',
+            'status' => $cancelledCode,
+        ]);
+
+        $response = $this->put($this->actionRoute('reschedule.update', $learningClass, $lesson), [
+            'lesson_date' => '2026-10-12',
+            'lesson_time' => '11:15',
+            'duration_minutes' => 60,
+            'teacher_id' => $learningClass->teacher_id,
+            'reason' => 'Pindah ke jadwal yang dibatalkan.',
+        ]);
+        $response->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertDatabaseHas('learning_class_lessons', [
+            'id' => $lesson->id,
+            'lesson_date' => '2026-10-12',
+            'lesson_time' => '11:15',
+        ]);
+    }
+
     public function test_reschedule_can_change_teacher_for_one_lesson_and_records_teacher_history(): void
     {
         [$learningClass, $lesson] = $this->createLesson();
@@ -493,8 +520,7 @@ class LearningClassLessonActionsTest extends TestCase
             'name' => 'Kelas Aksi',
             'student_id' => $student->id,
             'teacher_id' => $teacher->id,
-            'program_id' => $program->id,
-            'category_id' => $category->id,
+            'product_id' => ProductFixture::make($program->id, $category->id)->id,
             ...$overrides,
         ]);
     }

@@ -196,8 +196,7 @@ class MasterDataTest extends TestCase
             'name' => $name,
             'teacher_id' => $classTeacher->id,
             'student_id' => $student->id,
-            'program_id' => $programId,
-            'category_id' => $categoryId,
+            'product_id' => \Tests\Support\ProductFixture::make($programId, $categoryId)->id,
         ]);
         $createClass('Kelas Utama', $teacher, $primaryStudent);
         $substituteClass = $createClass('Kelas Pengganti', $otherTeacher, $substituteStudent);
